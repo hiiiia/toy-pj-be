@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class TicketTest {
 
@@ -198,6 +199,19 @@ class TicketTest {
         assertThat(ticket.getClassificationSource()).isEqualTo(ClassificationSource.MANUAL);
         assertThat(ticket.getPriority()).isEqualTo(TicketPriority.URGENT);
         assertThat(ticket.getDueAt()).isEqualTo(NOW.plusHours(4));
+    }
+
+    @Test
+    @DisplayName("재분류하면 SLA 알림 발송 기록이 초기화되어 새 기한 기준으로 다시 알릴 수 있다")
+    void reclassifyResetsSlaNotificationRecord() {
+        Ticket ticket = Fixtures.ticket(Fixtures.employee(), TicketPriority.URGENT);
+        ReflectionTestUtils.setField(ticket, "slaWarnedAt", NOW);
+        ReflectionTestUtils.setField(ticket, "slaBreachedAt", NOW);
+
+        ticket.reclassify(TicketCategory.NETWORK, TicketPriority.LOW, NOW, ADMIN);
+
+        assertThat(ticket.getSlaWarnedAt()).isNull();
+        assertThat(ticket.getSlaBreachedAt()).isNull();
     }
 
     @ParameterizedTest

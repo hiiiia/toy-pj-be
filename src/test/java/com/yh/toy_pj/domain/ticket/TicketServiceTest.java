@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class TicketServiceTest {
@@ -45,13 +46,15 @@ class TicketServiceTest {
     private AssetService assetService;
     @Mock
     private TicketTriageService triageService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private TicketService ticketService;
 
     @BeforeEach
     void setUp() {
         Clock fixed = Clock.fixed(Fixtures.NOW.atZone(ZONE).toInstant(), ZONE);
-        ticketService = new TicketService(ticketRepository, userService, assetService, triageService, fixed);
+        ticketService = new TicketService(ticketRepository, userService, assetService, triageService, eventPublisher, fixed);
     }
 
     private void saveReturnsArgument() {

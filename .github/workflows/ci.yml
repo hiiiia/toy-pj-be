@@ -18,6 +18,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # 테스트는 Testcontainers 로 PostgreSQL 컨테이너를 띄운다 (GitHub 러너에는 Docker 가 기본 설치되어 있음)
       - name: Test
         run: ./gradlew test --console=plain
 

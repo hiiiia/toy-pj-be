@@ -11,6 +11,7 @@ import com.yh.toy_pj.domain.user.UserRole;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,12 +21,13 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 통합 테스트 공통 기반: 실제 스프링 컨텍스트 + H2(Flyway 로 스키마 생성) + 실제 보안 필터.
+ * 통합 테스트 공통 기반: 실제 스프링 컨텍스트 + PostgreSQL 컨테이너(Flyway 로 스키마 생성) + 실제 보안 필터.
  * 각 테스트는 트랜잭션 안에서 실행되고 끝나면 롤백된다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(PostgresTestContainer.class)
 @Transactional
 public abstract class IntegrationTestSupport {
 

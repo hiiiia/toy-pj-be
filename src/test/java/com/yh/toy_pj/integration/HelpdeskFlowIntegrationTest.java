@@ -202,8 +202,11 @@ class HelpdeskFlowIntegrationTest extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.ticketStatus[0].code").value("OPEN"))
                 .andExpect(jsonPath("$.ticketStatus[0].label").value("접수대기"));
 
-        mockMvc.perform(get("/api/unknown").header(HttpHeaders.AUTHORIZATION, admin))
+        // 에러 응답에는 서버 로그를 찾을 수 있는 요청 ID 가 담기고, 응답 헤더 값과 같다
+        mockMvc.perform(get("/api/unknown").header(HttpHeaders.AUTHORIZATION, admin).header("X-Request-Id", "trace-404"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("C002"));
+                .andExpect(jsonPath("$.code").value("C002"))
+                .andExpect(jsonPath("$.requestId").value("trace-404"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Request-Id", "trace-404"));
     }
 }

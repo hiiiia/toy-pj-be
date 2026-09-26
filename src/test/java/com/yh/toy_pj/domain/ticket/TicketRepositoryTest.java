@@ -6,6 +6,9 @@ import com.yh.toy_pj.domain.ticket.dto.TicketSearchCondition;
 import com.yh.toy_pj.domain.user.User;
 import com.yh.toy_pj.global.config.JpaConfig;
 import com.yh.toy_pj.support.Fixtures;
+import com.yh.toy_pj.support.PostgresTestContainer;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,11 +26,11 @@ import org.springframework.test.context.ActiveProfiles;
 
 /**
  * 실제 운영과 같은 Flyway 마이그레이션으로 만든 스키마 위에서 쿼리를 검증한다.
- * (replace = NONE: 테스트용 임베디드 DB 로 바꿔치기하지 않고 application-test 설정의 DB 를 사용)
+ * (replace = NONE: 임베디드 DB 로 바꿔치기하지 않고 PostgreSQL 컨테이너를 사용)
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(JpaConfig.class)
+@Import({JpaConfig.class, PostgresTestContainer.class})
 @ActiveProfiles("test")
 class TicketRepositoryTest {
 
@@ -36,6 +39,9 @@ class TicketRepositoryTest {
 
     @Autowired
     private TestEntityManager em;
+
+    @Autowired
+    private Clock clock;
 
     private User requester;
     private User admin;
@@ -115,6 +121,15 @@ class TicketRepositoryTest {
         assertThat(ticketRepository.countOverdue(TicketStatus.ACTIVE, fiveHoursLater)).isEqualTo(1);
         assertThat(ticketRepository.countOverdue(TicketStatus.ACTIVE, fourDaysLater)).isEqualTo(2);
         assertThat(ticketRepository.countByAssigneeIsNullAndStatus(TicketStatus.OPEN)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("생성 시각(createdAt)은 서버 시간대와 관계없이 SLA 와 같은 Clock(Asia/Seoul) 기준으로 기록된다")
+    void auditingUsesClock() {
+        Ticket saved = ticketRepository.saveAndFlush(Ticket.open("시각 확인", "내용", TicketCategory.ETC, TicketPriority.LOW,
+                ClassificationSource.MANUAL, requester, null, LocalDateTime.now(clock)));
+
+        assertThat(Duration.between(saved.getCreatedAt(), LocalDateTime.now(clock)).abs()).isLessThan(Duration.ofMinutes(1));
     }
 
     private TicketSearchCondition condition(TicketStatus status, Long assigneeId, Boolean unassigned, String keyword) {
