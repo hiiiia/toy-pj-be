@@ -19,12 +19,19 @@ public final class Fixtures {
     private Fixtures() {
     }
 
+    /** 단위 테스트용 비밀번호 값 ({noop} = 해시하지 않은 값이라는 표시. 실제 저장은 BCrypt 해시) */
+    public static final String NOOP_PASSWORD = "{noop}password1";
+
     public static User admin() {
-        return User.create("김관리", "admin@test.com", "IT지원팀", UserRole.ADMIN);
+        return User.create("김관리", "admin@test.com", NOOP_PASSWORD, "IT지원팀", UserRole.ADMIN);
     }
 
     public static User employee() {
-        return User.create("홍길동", "hong@test.com", "영업팀", UserRole.USER);
+        return User.create("홍길동", "hong@test.com", NOOP_PASSWORD, "영업팀", UserRole.USER);
+    }
+
+    public static User employee(String name, String email) {
+        return User.create(name, email, NOOP_PASSWORD, "영업팀", UserRole.USER);
     }
 
     public static User withId(User user, long id) {

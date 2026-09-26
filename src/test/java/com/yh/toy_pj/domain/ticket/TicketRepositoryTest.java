@@ -13,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
@@ -20,7 +21,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
+/**
+ * 실제 운영과 같은 Flyway 마이그레이션으로 만든 스키마 위에서 쿼리를 검증한다.
+ * (replace = NONE: 테스트용 임베디드 DB 로 바꿔치기하지 않고 application-test 설정의 DB 를 사용)
+ */
 @DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(JpaConfig.class)
 @ActiveProfiles("test")
 class TicketRepositoryTest {
@@ -43,11 +49,11 @@ class TicketRepositoryTest {
                 ClassificationSource.MANUAL, requester, null, Fixtures.NOW);
         Ticket monitor = Ticket.open("모니터 깜빡임", "화면이 깜빡입니다", TicketCategory.HARDWARE, TicketPriority.LOW,
                 ClassificationSource.RULE, requester, null, Fixtures.NOW);
-        monitor.assign(admin);
-        monitor.changeStatus(TicketStatus.IN_PROGRESS, null, Fixtures.NOW);
+        monitor.assign(admin, admin);
+        monitor.changeStatus(TicketStatus.IN_PROGRESS, null, Fixtures.NOW, admin);
         Ticket canceled = Ticket.open("VPN 재문의", "중복", TicketCategory.NETWORK, TicketPriority.URGENT,
                 ClassificationSource.MANUAL, requester, null, Fixtures.NOW);
-        canceled.changeStatus(TicketStatus.CANCELED, "중복 접수", Fixtures.NOW);
+        canceled.changeStatus(TicketStatus.CANCELED, "중복 접수", Fixtures.NOW, requester);
 
         ticketRepository.saveAll(List.of(vpn, monitor, canceled));
         em.flush();
@@ -80,6 +86,7 @@ class TicketRepositoryTest {
         assertThat(ticket.getHistories()).extracting(TicketHistory::getToStatus)
                 .containsExactly(TicketStatus.OPEN, TicketStatus.OPEN, TicketStatus.IN_PROGRESS);
         assertThat(ticket.getHistories().get(0).getCreatedAt()).isNotNull(); // JPA Auditing
+        assertThat(ticket.getHistories().get(2).getActor().getName()).isEqualTo("김관리"); // 처리자 기록
     }
 
     @Test
