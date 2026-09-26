@@ -24,6 +24,9 @@ public enum ErrorCode {
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH002", "이메일 또는 비밀번호가 올바르지 않습니다."),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH003", "로그인이 만료되었습니다. 다시 로그인하세요."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "AUTH004", "접근 권한이 없습니다."),
+    ACCOUNT_LOCKED(HttpStatus.LOCKED, "AUTH005", "로그인에 여러 번 실패해 계정이 잠겼습니다."),
+    CURRENT_PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "AUTH006", "현재 비밀번호가 올바르지 않습니다."),
+    SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "AUTH007", "새 비밀번호가 현재 비밀번호와 같습니다."),
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "사용자를 찾을 수 없습니다."),
@@ -41,6 +44,14 @@ public enum ErrorCode {
     ASSIGNEE_NOT_ADMIN(HttpStatus.BAD_REQUEST, "T003", "IT 관리자(ADMIN)만 티켓 담당자로 지정할 수 있습니다."),
     ASSIGNEE_REQUIRED(HttpStatus.CONFLICT, "T004", "담당자가 지정되어야 처리를 시작할 수 있습니다."),
     TICKET_ALREADY_FINISHED(HttpStatus.CONFLICT, "T005", "이미 종료되었거나 취소된 티켓입니다."),
+    COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "T006", "댓글을 찾을 수 없습니다."),
+
+    // Attachment
+    ATTACHMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "F001", "첨부파일을 찾을 수 없습니다."),
+    FILE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "F002", "파일 크기가 너무 큽니다."),
+    UNSUPPORTED_FILE_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "F003", "허용되지 않는 파일 형식입니다."),
+    ATTACHMENT_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "F004", "티켓당 첨부파일 개수를 초과했습니다."),
+    FILE_STORAGE_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "F005", "파일을 저장하거나 읽는 중 오류가 발생했습니다."),
 
     // AI
     AI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI001", "AI 서비스를 사용할 수 없습니다.");

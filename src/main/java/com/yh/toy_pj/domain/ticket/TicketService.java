@@ -14,10 +14,12 @@ import com.yh.toy_pj.domain.user.UserService;
 import com.yh.toy_pj.global.common.PageResponse;
 import com.yh.toy_pj.global.error.BusinessException;
 import com.yh.toy_pj.global.error.ErrorCode;
+import com.yh.toy_pj.notification.TicketEvents;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,7 @@ public class TicketService {
     private final UserService userService;
     private final AssetService assetService;
     private final TicketTriageService triageService;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     /**
@@ -73,16 +76,39 @@ public class TicketService {
 
     public TicketDetailResponse getDetail(Long id, AuthUser me) {
         Ticket ticket = ticketRepository.findDetailById(id).orElseThrow(() -> notFound(id));
+        checkViewable(ticket, me);
+        return TicketDetailResponse.of(ticket, now());
+    }
+
+    /** 조회 권한(요청자 본인 또는 관리자)을 확인하고 티켓을 돌려준다. 댓글·첨부파일 서비스에서 사용한다. */
+    public Ticket getViewableTicket(Long id, AuthUser me) {
+        Ticket ticket = getTicket(id);
+        checkViewable(ticket, me);
+        return ticket;
+    }
+
+    /** 조회 권한 + 아직 종료되지 않은 티켓인지 확인한다. (종료된 티켓에는 댓글·첨부를 추가할 수 없다) */
+    public Ticket getWritableTicket(Long id, AuthUser me) {
+        Ticket ticket = getViewableTicket(id, me);
+        if (ticket.getStatus().isFinished()) {
+            throw new BusinessException(ErrorCode.TICKET_ALREADY_FINISHED);
+        }
+        return ticket;
+    }
+
+    private static void checkViewable(Ticket ticket, AuthUser me) {
         if (!me.isAdmin() && !ticket.getRequester().getId().equals(me.id())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "본인이 요청한 티켓만 조회할 수 있습니다.");
         }
-        return TicketDetailResponse.of(ticket, now());
     }
 
     @Transactional
     public TicketDetailResponse assign(Long id, Long assigneeId, AuthUser me) {
         Ticket ticket = getTicket(id);
-        ticket.assign(userService.getUser(assigneeId), userService.getUser(me.id()));
+        User assignee = userService.getUser(assigneeId);
+        User actor = userService.getUser(me.id());
+        ticket.assign(assignee, actor);
+        eventPublisher.publishEvent(new TicketEvents.Assigned(ticket, assignee, actor));
         return toDetail(ticket);
     }
 

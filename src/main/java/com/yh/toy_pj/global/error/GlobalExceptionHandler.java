@@ -11,6 +11,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
@@ -49,6 +51,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleNotReadable(HttpMessageNotReadableException e) {
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.of(ErrorCode.INVALID_INPUT, "요청 본문을 읽을 수 없습니다. JSON 형식과 코드 값을 확인하세요."));
+    }
+
+    /** 서블릿 단계의 업로드 크기 제한(spring.servlet.multipart.max-file-size) 초과 */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUpload(MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(ErrorCode.FILE_TOO_LARGE.getStatus())
+                .body(ErrorResponse.of(ErrorCode.FILE_TOO_LARGE, "파일 크기가 허용 한도를 초과했습니다."));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ErrorResponse> handleMissingPart(MissingServletRequestPartException e) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of(ErrorCode.INVALID_INPUT, "'" + e.getRequestPartName() + "' 파일이 필요합니다."));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
