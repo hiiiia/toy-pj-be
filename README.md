@@ -222,6 +222,8 @@ com.yh.toy_pj
 | `User` 엔티티만 있고 사용되지 않음 | 요청자/담당자/자산 배정자로 실제 연관관계 사용 |
 
 ### 프론트엔드 연동 시 변경점
+> 프론트엔드 [`yh-fe`](../yh-fe) 는 아래 변경을 모두 반영했습니다. 개발 서버의 `/api` 프록시로 연결됩니다.
+
 - 상태값: 한글 문자열 → 영문 코드 (`IN_USE`, `OPEN` 등). 라벨은 `GET /api/codes` 사용
 - 목록 API: 배열 → 페이지 객체 (`content`, `totalElements`, `hasNext` ...)
 - 대시보드: `/api/dashboard/stats` → `/api/dashboard/summary`
