@@ -1,6 +1,7 @@
 package com.yh.toy_pj.global.error;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.yh.toy_pj.global.logging.RequestIdFilter;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -13,15 +14,18 @@ public record ErrorResponse(
         String message,
         int status,
         List<FieldError> errors,
+        String requestId,
         LocalDateTime timestamp
 ) {
 
     public static ErrorResponse of(ErrorCode errorCode, String message) {
-        return new ErrorResponse(errorCode.getCode(), message, errorCode.getStatus().value(), List.of(), LocalDateTime.now());
+        return new ErrorResponse(errorCode.getCode(), message, errorCode.getStatus().value(), List.of(),
+                RequestIdFilter.current(), LocalDateTime.now());
     }
 
     public static ErrorResponse of(ErrorCode errorCode, List<FieldError> errors) {
-        return new ErrorResponse(errorCode.getCode(), errorCode.getMessage(), errorCode.getStatus().value(), errors, LocalDateTime.now());
+        return new ErrorResponse(errorCode.getCode(), errorCode.getMessage(), errorCode.getStatus().value(), errors,
+                RequestIdFilter.current(), LocalDateTime.now());
     }
 
     public record FieldError(String field, Object rejectedValue, String reason) {

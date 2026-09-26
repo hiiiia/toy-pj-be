@@ -39,3 +39,6 @@ out/
 ### Env ###
 .env
 *.local.properties
+
+### Uploads (local) ###
+data/
