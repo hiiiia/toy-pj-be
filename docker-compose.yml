@@ -3,7 +3,7 @@
 #   2) docker compose up -d --build
 #   3) http://localhost:3000 접속
 #
-# 프론트엔드는 옆 폴더(../yh-fe)에서 빌드한다.
+# 프론트엔드는 옆 폴더(../yh-fe)에서 빌드한다. 다른 위치에 받았다면 .env 의 FRONTEND_PATH 로 지정.
 name: yh-helpdesk
 
 services:
@@ -45,7 +45,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ../yh-fe
+    build: ${FRONTEND_PATH:-../yh-fe} # 프론트엔드 저장소 위치 (기본: 옆 폴더)
     ports:
       - "${WEB_PORT:-3000}:80"
     depends_on:
