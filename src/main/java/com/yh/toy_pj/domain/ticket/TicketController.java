@@ -44,7 +44,7 @@ public class TicketController {
         return ResponseEntity.created(URI.create("/api/tickets/" + response.id())).body(response);
     }
 
-    @Operation(summary = "티켓 목록 검색", description = "status, priority, category, requesterId, assigneeId, unassigned, keyword 조건과 페이징을 지원한다. 일반 사용자는 본인 티켓만 조회된다.")
+    @Operation(summary = "티켓 목록 검색", description = "status, priority, category, requesterId, assigneeId, unassigned, active(미완료), overdue(SLA 초과), keyword 조건과 페이징을 지원한다. 일반 사용자는 본인 티켓만 조회된다.")
     @GetMapping
     public PageResponse<TicketResponse> search(@ModelAttribute TicketSearchCondition condition,
                                                @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable,

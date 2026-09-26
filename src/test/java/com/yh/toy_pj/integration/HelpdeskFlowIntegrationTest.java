@@ -143,6 +143,13 @@ class HelpdeskFlowIntegrationTest extends IntegrationTestSupport {
         // 관리자는 전체 티켓을 본다
         mockMvc.perform(get("/api/tickets").header(HttpHeaders.AUTHORIZATION, admin))
                 .andExpect(jsonPath("$.totalElements").value(2));
+
+        // 대시보드 카드에서 넘어오는 조건: 미완료(active) = 취소된 티켓 제외
+        mockMvc.perform(get("/api/tickets").param("active", "true").header(HttpHeaders.AUTHORIZATION, admin))
+                .andExpect(jsonPath("$.totalElements").value(1));
+        // 방금 접수한 티켓이라 SLA 초과는 없음
+        mockMvc.perform(get("/api/tickets").param("overdue", "true").header(HttpHeaders.AUTHORIZATION, admin))
+                .andExpect(jsonPath("$.totalElements").value(0));
     }
 
     @Test

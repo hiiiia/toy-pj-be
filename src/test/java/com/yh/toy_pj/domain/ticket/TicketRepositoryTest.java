@@ -69,10 +69,10 @@ class TicketRepositoryTest {
     @Test
     @DisplayName("동적 검색: 조건이 없으면 전체, 조건이 있으면 조합해서 필터링한다")
     void searchWithSpecification() {
-        Page<Ticket> all = ticketRepository.findAll(TicketSpecs.of(condition(null, null, null, null)), page());
-        Page<Ticket> vpnOpen = ticketRepository.findAll(TicketSpecs.of(condition(TicketStatus.OPEN, null, null, "vpn")), page());
-        Page<Ticket> byAssignee = ticketRepository.findAll(TicketSpecs.of(condition(null, admin.getId(), null, null)), page());
-        Page<Ticket> unassigned = ticketRepository.findAll(TicketSpecs.of(condition(null, null, true, null)), page());
+        Page<Ticket> all = ticketRepository.findAll(TicketSpecs.of(condition(null, null, null, null), Fixtures.NOW), page());
+        Page<Ticket> vpnOpen = ticketRepository.findAll(TicketSpecs.of(condition(TicketStatus.OPEN, null, null, "vpn"), Fixtures.NOW), page());
+        Page<Ticket> byAssignee = ticketRepository.findAll(TicketSpecs.of(condition(null, admin.getId(), null, null), Fixtures.NOW), page());
+        Page<Ticket> unassigned = ticketRepository.findAll(TicketSpecs.of(condition(null, null, true, null), Fixtures.NOW), page());
 
         assertThat(all.getTotalElements()).isEqualTo(3);
         assertThat(vpnOpen.getContent()).extracting(Ticket::getTitle).containsExactly("VPN 접속 불가");
@@ -83,7 +83,7 @@ class TicketRepositoryTest {
     @Test
     @DisplayName("상세 조회 시 처리 이력을 함께 가져온다")
     void findDetailWithHistories() {
-        Long id = ticketRepository.findAll(TicketSpecs.of(condition(TicketStatus.IN_PROGRESS, null, null, null)), page())
+        Long id = ticketRepository.findAll(TicketSpecs.of(condition(TicketStatus.IN_PROGRESS, null, null, null), Fixtures.NOW), page())
                 .getContent().get(0).getId();
         em.clear();
 
@@ -113,6 +113,21 @@ class TicketRepositoryTest {
     }
 
     @Test
+    @DisplayName("검색: 미완료(active)와 SLA 초과(overdue) 조건은 대시보드 집계와 같은 건수를 돌려준다")
+    void searchActiveAndOverdue() {
+        var active = new TicketSearchCondition(null, null, null, null, null, null, null, true, null);
+        var overdue = new TicketSearchCondition(null, null, null, null, null, null, null, null, true);
+        LocalDateTime fiveHoursLater = Fixtures.NOW.plusHours(5); // URGENT(4h) 만 초과
+
+        assertThat(ticketRepository.findAll(TicketSpecs.of(active, Fixtures.NOW), page()).getContent())
+                .extracting(Ticket::getTitle).containsExactlyInAnyOrder("VPN 접속 불가", "모니터 깜빡임");
+        assertThat(ticketRepository.findAll(TicketSpecs.of(overdue, fiveHoursLater), page()).getContent())
+                .extracting(Ticket::getTitle).containsExactly("VPN 접속 불가"); // 취소된 긴급 티켓은 제외
+        assertThat(ticketRepository.findAll(TicketSpecs.of(overdue, fiveHoursLater), page()).getTotalElements())
+                .isEqualTo(ticketRepository.countOverdue(TicketStatus.ACTIVE, fiveHoursLater));
+    }
+
+    @Test
     @DisplayName("SLA 초과 건수는 진행중 상태만 대상으로 한다")
     void countOverdue() {
         LocalDateTime fiveHoursLater = Fixtures.NOW.plusHours(5);   // URGENT(4h) 초과, LOW(72h) 미초과
@@ -133,7 +148,7 @@ class TicketRepositoryTest {
     }
 
     private TicketSearchCondition condition(TicketStatus status, Long assigneeId, Boolean unassigned, String keyword) {
-        return new TicketSearchCondition(status, null, null, null, assigneeId, unassigned, keyword);
+        return new TicketSearchCondition(status, null, null, null, assigneeId, unassigned, keyword, null, null);
     }
 
     private PageRequest page() {

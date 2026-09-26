@@ -70,7 +70,7 @@ public class TicketService {
     public PageResponse<TicketResponse> search(TicketSearchCondition condition, Pageable pageable, AuthUser me) {
         TicketSearchCondition scoped = me.isAdmin() ? condition : condition.withRequesterId(me.id());
         LocalDateTime now = now();
-        return PageResponse.from(ticketRepository.findAll(TicketSpecs.of(scoped), pageable)
+        return PageResponse.from(ticketRepository.findAll(TicketSpecs.of(scoped, now), pageable)
                 .map(ticket -> TicketResponse.of(ticket, now)));
     }
 
