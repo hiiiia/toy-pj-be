@@ -10,6 +10,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -36,6 +37,35 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
 
     @Query("select t.priority as code, count(t) as total from Ticket t where t.status in :statuses group by t.priority")
     List<KeyCount<TicketPriority>> countGroupByPriority(@Param("statuses") Collection<TicketStatus> statuses);
+
+    // ===== SLA 알림 =====
+
+    /** 처리 기한이 지났는데 아직 "초과" 알림을 보내지 않은 진행중 티켓 */
+    @Query("""
+            select t from Ticket t left join fetch t.assignee
+            where t.status in :statuses and t.dueAt <= :now and t.slaBreachedAt is null
+            """)
+    List<Ticket> findSlaBreachTargets(@Param("statuses") Collection<TicketStatus> statuses, @Param("now") LocalDateTime now);
+
+    /** 처리 기한이 곧 다가오는데 아직 "임박" 알림을 보내지 않은 진행중 티켓 */
+    @Query("""
+            select t from Ticket t left join fetch t.assignee
+            where t.status in :statuses and t.dueAt > :now and t.dueAt <= :threshold and t.slaWarnedAt is null
+            """)
+    List<Ticket> findSlaWarningTargets(@Param("statuses") Collection<TicketStatus> statuses,
+                                       @Param("now") LocalDateTime now, @Param("threshold") LocalDateTime threshold);
+
+    /**
+     * 알림 발송 기록은 벌크 UPDATE 로 남긴다.
+     * 벌크 UPDATE 는 @Version 을 올리지 않으므로, 담당자가 같은 티켓을 수정하는 중이어도 낙관적 락 충돌(409)을 일으키지 않는다.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("update Ticket t set t.slaBreachedAt = :now, t.slaWarnedAt = coalesce(t.slaWarnedAt, :now) where t.id in :ids")
+    int markSlaBreached(@Param("ids") Collection<Long> ids, @Param("now") LocalDateTime now);
+
+    @Modifying(flushAutomatically = true)
+    @Query("update Ticket t set t.slaWarnedAt = :now where t.id in :ids")
+    int markSlaWarned(@Param("ids") Collection<Long> ids, @Param("now") LocalDateTime now);
 
     interface KeyCount<K> {
         K getCode();

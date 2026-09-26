@@ -27,6 +27,7 @@ import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 
 /**
  * 헬프데스크 티켓 (장애 신고/요청).
@@ -34,6 +35,7 @@ import lombok.NoArgsConstructor;
  * (테이블/인덱스 정의는 Flyway 마이그레이션 파일 db/migration/V*.sql 이 기준이다.)
  */
 @Entity
+@DynamicUpdate // 바뀐 컬럼만 UPDATE → 스케줄러가 기록한 SLA 발송 시각을 사용자 수정이 덮어쓰지 않음
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Ticket extends BaseTimeEntity {
@@ -81,6 +83,11 @@ public class Ticket extends BaseTimeEntity {
     private LocalDateTime dueAt;
 
     private LocalDateTime resolvedAt;
+
+    /** SLA 임박/초과 알림을 보낸 시각. 같은 기한에 대해 알림을 두 번 보내지 않기 위한 기록 */
+    private LocalDateTime slaWarnedAt;
+
+    private LocalDateTime slaBreachedAt;
 
     /** 낙관적 락: 여러 담당자가 동시에 같은 대상을 수정할 때 나중 요청이 앞선 변경을 덮어쓰지 않도록 한다. */
     @Version
@@ -154,6 +161,9 @@ public class Ticket extends BaseTimeEntity {
         this.classificationSource = ClassificationSource.MANUAL;
         LocalDateTime base = getCreatedAt() != null ? getCreatedAt() : now;
         this.dueAt = base.plus(priority.getSla());
+        // 기한이 바뀌었으므로 새 기한 기준으로 다시 알림을 보낼 수 있게 초기화
+        this.slaWarnedAt = null;
+        this.slaBreachedAt = null;
         addHistory(actor, status, status, "재분류: %s / %s".formatted(category.getLabel(), priority.getLabel()));
     }
 
