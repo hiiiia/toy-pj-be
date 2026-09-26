@@ -1,6 +1,7 @@
 package com.yh.toy_pj.auth;
 
 import com.yh.toy_pj.auth.dto.LoginRequest;
+import com.yh.toy_pj.auth.dto.PasswordChangeRequest;
 import com.yh.toy_pj.auth.dto.SignupRequest;
 import com.yh.toy_pj.auth.dto.TokenResponse;
 import com.yh.toy_pj.auth.jwt.JwtProperties;
@@ -17,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -65,6 +67,13 @@ public class AuthController {
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie("", Duration.ZERO).toString())
                 .build();
+    }
+
+    @Operation(summary = "비밀번호 변경", description = "현재 비밀번호 확인 후 변경한다. 다른 기기의 로그인은 모두 해제되고, 지금 기기에는 새 토큰을 발급한다.")
+    @PatchMapping("/password")
+    public ResponseEntity<TokenResponse> changePassword(@Valid @RequestBody PasswordChangeRequest request,
+                                                        @AuthenticationPrincipal AuthUser me) {
+        return withRefreshCookie(authService.changePassword(me.id(), request.currentPassword(), request.newPassword()));
     }
 
     @Operation(summary = "내 정보")

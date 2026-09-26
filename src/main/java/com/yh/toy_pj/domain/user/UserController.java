@@ -1,5 +1,6 @@
 package com.yh.toy_pj.domain.user;
 
+import com.yh.toy_pj.domain.user.dto.PasswordResetResponse;
 import com.yh.toy_pj.domain.user.dto.UserCreateRequest;
 import com.yh.toy_pj.domain.user.dto.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,5 +42,17 @@ public class UserController {
     @GetMapping("/{id}")
     public UserResponse get(@PathVariable Long id) {
         return userService.get(id);
+    }
+
+    @Operation(summary = "비밀번호 초기화", description = "임시 비밀번호를 발급한다. 응답에서 한 번만 확인할 수 있고, 사용자의 기존 로그인은 모두 해제된다.")
+    @PostMapping("/{id}/password-reset")
+    public PasswordResetResponse resetPassword(@PathVariable Long id) {
+        return userService.resetPassword(id);
+    }
+
+    @Operation(summary = "로그인 잠금 해제")
+    @PostMapping("/{id}/unlock")
+    public UserResponse unlock(@PathVariable Long id) {
+        return userService.unlock(id);
     }
 }

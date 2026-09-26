@@ -11,6 +11,7 @@ import com.yh.toy_pj.domain.user.dto.UserResponse;
 import com.yh.toy_pj.global.error.BusinessException;
 import com.yh.toy_pj.global.error.ErrorCode;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final JwtProperties jwtProperties;
+    private final AuthPolicyProperties policy;
     private final Clock clock;
 
     /** 존재하지 않는 이메일로 로그인할 때도 해시 비교 시간을 동일하게 소모시키기 위한 더미 해시 */
@@ -57,19 +59,63 @@ public class AuthService {
         return UserResponse.from(userRepository.save(user));
     }
 
-    @Transactional
+    /**
+     * 로그인. 연속으로 {@code maxLoginAttempts} 번 실패하면 {@code lockDuration} 동안 잠근다.
+     *
+     * noRollbackFor: 비밀번호가 틀려 예외를 던지더라도 "실패 횟수 증가"는 DB 에 저장되어야 한다.
+     * (기본 설정이면 RuntimeException 발생 시 트랜잭션 전체가 롤백되어 실패 횟수가 영원히 0 으로 남는다.)
+     */
+    @Transactional(noRollbackFor = BusinessException.class)
     public LoginResult login(String email, String rawPassword) {
+        LocalDateTime now = now();
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
             // 이메일 존재 여부를 응답 시간 차이로 추측하지 못하도록 같은 비용의 비교를 수행한다.
             passwordEncoder.matches(rawPassword, dummyHash());
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
+        if (user.isLocked(now)) {
+            throw lockedException(user, now);
+        }
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+            boolean locked = user.recordLoginFailure(now, policy.maxLoginAttempts(), policy.lockDuration());
+            if (locked) {
+                log.warn("로그인 {}회 연속 실패로 계정 잠금: userId={}", policy.maxLoginAttempts(), user.getId());
+                throw lockedException(user, now);
+            }
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
+        user.recordLoginSuccess();
         log.info("로그인 성공: userId={}", user.getId());
         return issueTokens(user);
+    }
+
+    /**
+     * 본인 비밀번호 변경. 현재 비밀번호를 다시 확인하고,
+     * 다른 기기의 로그인 세션(refresh token)을 모두 폐기한 뒤 지금 기기에만 새 토큰을 발급한다.
+     */
+    @Transactional
+    public LoginResult changePassword(Long userId, String currentPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new BusinessException(ErrorCode.CURRENT_PASSWORD_MISMATCH);
+        }
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new BusinessException(ErrorCode.SAME_AS_CURRENT_PASSWORD);
+        }
+        user.changePassword(passwordEncoder.encode(newPassword), now());
+        int revoked = refreshTokenRepository.deleteAllByUserId(user.getId());
+        log.info("비밀번호 변경: userId={}, 폐기한 세션 {}개", user.getId(), revoked);
+        return issueTokens(user);
+    }
+
+    private BusinessException lockedException(User user, LocalDateTime now) {
+        long seconds = Duration.between(now, user.getLockedUntil()).toSeconds();
+        long minutes = Math.max(1, (seconds + 59) / 60); // 남은 시간을 분 단위로 올림
+        return new BusinessException(ErrorCode.ACCOUNT_LOCKED,
+                "로그인에 %d회 연속 실패해 계정이 잠겼습니다. 약 %d분 후 다시 시도하거나 IT 관리자에게 문의하세요."
+                        .formatted(policy.maxLoginAttempts(), minutes));
     }
 
     /** Refresh token rotation: 사용한 refresh token 은 즉시 폐기하고 새 토큰을 발급한다. */
