@@ -29,6 +29,10 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
+    /** BCrypt 해시. 원문 비밀번호는 어디에도 저장하지 않는다. */
+    @Column(nullable = false, length = 100)
+    private String password;
+
     @Column(length = 50)
     private String department;
 
@@ -36,15 +40,19 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private UserRole role;
 
-    private User(String name, String email, String department, UserRole role) {
+    private User(String name, String email, String encodedPassword, String department, UserRole role) {
         this.name = name;
         this.email = email;
+        this.password = encodedPassword;
         this.department = department;
         this.role = role;
     }
 
-    public static User create(String name, String email, String department, UserRole role) {
-        return new User(name, email, department, role);
+    /**
+     * @param encodedPassword 반드시 PasswordEncoder 로 해시한 값을 넘긴다.
+     */
+    public static User create(String name, String email, String encodedPassword, String department, UserRole role) {
+        return new User(name, email, encodedPassword, department, role);
     }
 
     public boolean isAdmin() {

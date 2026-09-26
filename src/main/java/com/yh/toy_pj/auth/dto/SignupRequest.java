@@ -1,19 +1,16 @@
-package com.yh.toy_pj.domain.user.dto;
+package com.yh.toy_pj.auth.dto;
 
 import com.yh.toy_pj.auth.PasswordPolicy;
-import com.yh.toy_pj.domain.user.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-/** 관리자가 사용자(관리자 포함)를 등록할 때 사용한다. */
-public record UserCreateRequest(
+/** 회원가입은 항상 일반 사용자(USER)로 가입된다. 관리자는 관리자만 등록할 수 있다. */
+public record SignupRequest(
         @NotBlank @Size(max = 50) String name,
         @NotBlank @Email @Size(max = 100) String email,
         @NotBlank @Pattern(regexp = PasswordPolicy.REGEX, message = PasswordPolicy.MESSAGE) String password,
-        @Size(max = 50) String department,
-        @NotNull UserRole role
+        @Size(max = 50) String department
 ) {
 }

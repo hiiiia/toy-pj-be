@@ -13,4 +13,9 @@ public record TicketSearchCondition(
         Boolean unassigned,
         String keyword
 ) {
+
+    /** 요청자 조건만 강제로 바꾼 복사본 (일반 사용자 조회 범위 제한용) */
+    public TicketSearchCondition withRequesterId(Long requesterId) {
+        return new TicketSearchCondition(status, priority, category, requesterId, assigneeId, unassigned, keyword);
+    }
 }

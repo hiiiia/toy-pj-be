@@ -1,5 +1,6 @@
 package com.yh.toy_pj.domain.asset;
 
+import com.yh.toy_pj.auth.AuthUser;
 import com.yh.toy_pj.domain.asset.dto.AssetAssignRequest;
 import com.yh.toy_pj.domain.asset.dto.AssetCreateRequest;
 import com.yh.toy_pj.domain.asset.dto.AssetResponse;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -40,17 +42,18 @@ public class AssetController {
         return ResponseEntity.created(URI.create("/api/assets/" + response.id())).body(response);
     }
 
-    @Operation(summary = "자산 목록 검색", description = "status, type, assignedUserId, keyword(이름/시리얼) 조건과 페이징(page, size, sort)을 지원한다.")
+    @Operation(summary = "자산 목록 검색", description = "status, type, assignedUserId, keyword(이름/시리얼) 조건과 페이징(page, size, sort)을 지원한다. 일반 사용자는 본인 자산만 조회된다.")
     @GetMapping
     public PageResponse<AssetResponse> search(@ModelAttribute AssetSearchCondition condition,
-                                              @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
-        return assetService.search(condition, pageable);
+                                              @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable,
+                                              @AuthenticationPrincipal AuthUser me) {
+        return assetService.search(condition, pageable, me);
     }
 
     @Operation(summary = "자산 단건 조회")
     @GetMapping("/{id}")
-    public AssetResponse get(@PathVariable Long id) {
-        return assetService.get(id);
+    public AssetResponse get(@PathVariable Long id, @AuthenticationPrincipal AuthUser me) {
+        return assetService.get(id, me);
     }
 
     @Operation(summary = "자산 정보 수정 (부분 수정)")

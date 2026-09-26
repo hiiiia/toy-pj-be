@@ -1,5 +1,6 @@
 package com.yh.toy_pj.domain.asset;
 
+import com.yh.toy_pj.auth.AuthUser;
 import com.yh.toy_pj.domain.asset.dto.AssetCreateRequest;
 import com.yh.toy_pj.domain.asset.dto.AssetResponse;
 import com.yh.toy_pj.domain.asset.dto.AssetSearchCondition;
@@ -35,12 +36,19 @@ public class AssetService {
         return AssetResponse.from(assetRepository.save(asset));
     }
 
-    public PageResponse<AssetResponse> search(AssetSearchCondition condition, Pageable pageable) {
-        return PageResponse.from(assetRepository.findAll(AssetSpecs.of(condition), pageable).map(AssetResponse::from));
+    /** 일반 사용자는 본인에게 배정된 자산만 조회된다. */
+    public PageResponse<AssetResponse> search(AssetSearchCondition condition, Pageable pageable, AuthUser me) {
+        AssetSearchCondition scoped = me.isAdmin() ? condition : condition.withAssignedUserId(me.id());
+        return PageResponse.from(assetRepository.findAll(AssetSpecs.of(scoped), pageable).map(AssetResponse::from));
     }
 
-    public AssetResponse get(Long id) {
-        return AssetResponse.from(getAsset(id));
+    public AssetResponse get(Long id, AuthUser me) {
+        Asset asset = getAsset(id);
+        boolean mine = asset.getAssignedUser() != null && asset.getAssignedUser().getId().equals(me.id());
+        if (!me.isAdmin() && !mine) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "본인에게 배정된 자산만 조회할 수 있습니다.");
+        }
+        return AssetResponse.from(asset);
     }
 
     @Transactional

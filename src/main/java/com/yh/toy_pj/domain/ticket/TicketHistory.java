@@ -1,5 +1,6 @@
 package com.yh.toy_pj.domain.ticket;
 
+import com.yh.toy_pj.domain.user.User;
 import com.yh.toy_pj.global.common.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -31,6 +32,11 @@ public class TicketHistory extends BaseTimeEntity {
     @JoinColumn(name = "ticket_id", nullable = false)
     private Ticket ticket;
 
+    /** 처리자: 누가 이 변경을 했는지 */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "actor_id")
+    private User actor;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private TicketStatus fromStatus;
@@ -42,8 +48,9 @@ public class TicketHistory extends BaseTimeEntity {
     @Column(length = 500)
     private String note;
 
-    TicketHistory(Ticket ticket, TicketStatus fromStatus, TicketStatus toStatus, String note) {
+    TicketHistory(Ticket ticket, User actor, TicketStatus fromStatus, TicketStatus toStatus, String note) {
         this.ticket = ticket;
+        this.actor = actor;
         this.fromStatus = fromStatus;
         this.toStatus = toStatus;
         this.note = note;

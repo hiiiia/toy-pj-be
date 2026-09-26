@@ -14,12 +14,10 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
-import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -32,13 +30,10 @@ import lombok.NoArgsConstructor;
 
 /**
  * 헬프데스크 티켓 (장애 신고/요청).
- * 상태 전이 규칙은 {@link TicketStatus} 에 정의되어 있으며, 모든 변경은 {@link TicketHistory} 로 기록된다.
+ * 상태 전이 규칙은 {@link TicketStatus} 에 정의되어 있으며, 모든 변경은 처리자와 함께 {@link TicketHistory} 로 기록된다.
+ * (테이블/인덱스 정의는 Flyway 마이그레이션 파일 db/migration/V*.sql 이 기준이다.)
  */
 @Entity
-@Table(indexes = {
-        @Index(name = "idx_ticket_status", columnList = "status"),
-        @Index(name = "idx_ticket_assignee", columnList = "assignee_id")
-})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Ticket extends BaseTimeEntity {
@@ -106,7 +101,7 @@ public class Ticket extends BaseTimeEntity {
         this.asset = asset;
         this.status = TicketStatus.OPEN;
         this.dueAt = now.plus(priority.getSla());
-        addHistory(null, TicketStatus.OPEN, "티켓 접수");
+        addHistory(requester, null, TicketStatus.OPEN, "티켓 접수");
     }
 
     public static Ticket open(String title, String description, TicketCategory category, TicketPriority priority,
@@ -114,18 +109,26 @@ public class Ticket extends BaseTimeEntity {
         return new Ticket(title, description, category, priority, source, requester, asset, now);
     }
 
-    public void assign(User assignee) {
+    public void assign(User assignee, User actor) {
         Objects.requireNonNull(assignee, "assignee");
         ensureNotFinished();
         if (!assignee.isAdmin()) {
             throw new BusinessException(ErrorCode.ASSIGNEE_NOT_ADMIN);
         }
         this.assignee = assignee;
-        addHistory(status, status, "담당자 지정: " + assignee.getName());
+        addHistory(actor, status, status, "담당자 지정: " + assignee.getName());
     }
 
-    public void changeStatus(TicketStatus next, String note, LocalDateTime now) {
+    /**
+     * 상태 변경. IT 관리자는 허용된 전이를 모두 할 수 있고,
+     * 일반 사용자는 본인이 요청한 티켓을 "취소"하는 것만 가능하다.
+     */
+    public void changeStatus(TicketStatus next, String note, LocalDateTime now, User actor) {
         Objects.requireNonNull(next, "next");
+        Objects.requireNonNull(actor, "actor");
+        if (!actor.isAdmin() && !(isRequestedBy(actor) && next == TicketStatus.CANCELED)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "요청자는 본인 티켓의 접수 취소만 할 수 있습니다.");
+        }
         if (!status.canTransitionTo(next)) {
             throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION,
                     "'%s' 상태에서 '%s' 상태로 변경할 수 없습니다.".formatted(status.getLabel(), next.getLabel()));
@@ -140,18 +143,22 @@ public class Ticket extends BaseTimeEntity {
         } else if (previous == TicketStatus.RESOLVED && next == TicketStatus.IN_PROGRESS) {
             this.resolvedAt = null; // 재오픈 (RESOLVED → CLOSED 는 해결 시각 유지)
         }
-        addHistory(previous, next, note);
+        addHistory(actor, previous, next, note);
     }
 
     /** 담당자가 AI/규칙 분류 결과를 수동으로 바로잡는다. 처리 기한은 접수 시각 기준으로 재계산된다. */
-    public void reclassify(TicketCategory category, TicketPriority priority, LocalDateTime now) {
+    public void reclassify(TicketCategory category, TicketPriority priority, LocalDateTime now, User actor) {
         ensureNotFinished();
         this.category = Objects.requireNonNull(category, "category");
         this.priority = Objects.requireNonNull(priority, "priority");
         this.classificationSource = ClassificationSource.MANUAL;
         LocalDateTime base = getCreatedAt() != null ? getCreatedAt() : now;
         this.dueAt = base.plus(priority.getSla());
-        addHistory(status, status, "재분류: %s / %s".formatted(category.getLabel(), priority.getLabel()));
+        addHistory(actor, status, status, "재분류: %s / %s".formatted(category.getLabel(), priority.getLabel()));
+    }
+
+    public boolean isRequestedBy(User user) {
+        return requester == user || (requester.getId() != null && requester.getId().equals(user.getId()));
     }
 
     public boolean isOverdue(LocalDateTime now) {
@@ -168,7 +175,7 @@ public class Ticket extends BaseTimeEntity {
         }
     }
 
-    private void addHistory(TicketStatus from, TicketStatus to, String note) {
-        histories.add(new TicketHistory(this, from, to, note));
+    private void addHistory(User actor, TicketStatus from, TicketStatus to, String note) {
+        histories.add(new TicketHistory(this, actor, from, to, note));
     }
 }

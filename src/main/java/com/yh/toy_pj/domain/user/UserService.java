@@ -7,6 +7,7 @@ import com.yh.toy_pj.global.error.ErrorCode;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,13 +17,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public UserResponse create(UserCreateRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
-        User user = User.create(request.name(), request.email(), request.department(), request.role());
+        User user = User.create(request.name(), request.email(), passwordEncoder.encode(request.password()),
+                request.department(), request.role());
         return UserResponse.from(userRepository.save(user));
     }
 

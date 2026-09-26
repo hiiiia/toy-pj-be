@@ -19,6 +19,12 @@ public enum ErrorCode {
     CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "C005", "다른 사용자가 먼저 수정했습니다. 새로고침 후 다시 시도하세요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "C999", "서버 내부 오류가 발생했습니다."),
 
+    // Auth
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH001", "로그인이 필요합니다."),
+    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH002", "이메일 또는 비밀번호가 올바르지 않습니다."),
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH003", "로그인이 만료되었습니다. 다시 로그인하세요."),
+    FORBIDDEN(HttpStatus.FORBIDDEN, "AUTH004", "접근 권한이 없습니다."),
+
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "사용자를 찾을 수 없습니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "U002", "이미 등록된 이메일입니다."),
