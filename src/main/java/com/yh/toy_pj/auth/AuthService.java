@@ -42,8 +42,8 @@ public class AuthService {
     private final AuthPolicyProperties policy;
     private final Clock clock;
 
-    /** 존재하지 않는 이메일로 로그인할 때도 해시 비교 시간을 동일하게 소모시키기 위한 더미 해시 */
-    private String dummyHash;
+    /** 존재하지 않는 이메일로 로그인할 때도 해시 비교 시간을 동일하게 소모시키기 위한 더미 해시 (최초 사용 시 1번만 생성) */
+    private volatile String dummyHash;
 
     /** 로그인 결과: 응답 본문(access token)과 쿠키로 내려줄 refresh token 원문 */
     public record LoginResult(TokenResponse body, String refreshToken) {
@@ -129,9 +129,12 @@ public class AuthService {
         if (saved.isExpired(now())) {
             throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
-        User user = saved.getUser();
-        refreshTokenRepository.delete(saved);
-        return issueTokens(user);
+        // 같은 refresh token 으로 동시에 두 번 요청하면 둘 다 조회에 성공할 수 있다.
+        // 삭제한 행 수로 "먼저 삭제한 요청만" 통과시켜 토큰 한 개로 새 토큰이 두 쌍 발급되지 않게 한다.
+        if (refreshTokenRepository.deleteByIdAndCount(saved.getId()) == 0) {
+            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+        return issueTokens(saved.getUser());
     }
 
     @Transactional
@@ -158,10 +161,13 @@ public class AuthService {
     }
 
     private String dummyHash() {
-        if (dummyHash == null) {
-            dummyHash = passwordEncoder.encode("dummy-password-for-timing");
+        String hash = dummyHash;
+        if (hash == null) {
+            // 동시에 여러 요청이 들어와 두 번 만들어져도 결과는 같은 용도의 해시라 문제없다 (volatile 로 가시성만 보장)
+            hash = passwordEncoder.encode("dummy-password-for-timing");
+            dummyHash = hash;
         }
-        return dummyHash;
+        return hash;
     }
 
     private LocalDateTime now() {

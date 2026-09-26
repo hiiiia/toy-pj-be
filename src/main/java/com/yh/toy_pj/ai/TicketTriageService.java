@@ -43,12 +43,16 @@ public class TicketTriageService {
             String prompt = "[제목]\n" + title + "\n\n[내용]\n" + description;
             String json = geminiClient.generateJson(SYSTEM_INSTRUCTION, prompt);
             AiTriageResponse response = jsonMapper.readValue(json, AiTriageResponse.class);
+            if (response == null || response.category() == null || response.priority() == null) {
+                log.warn("AI 분류 응답에 필수 값이 없어 키워드 규칙으로 대체합니다: {}", json);
+                return ruleBasedTriage.triage(title, description);
+            }
             return new TriageResult(
                     TicketCategory.valueOf(response.category().trim().toUpperCase()),
                     TicketPriority.valueOf(response.priority().trim().toUpperCase()),
                     ClassificationSource.AI,
                     response.reason());
-        } catch (AiException | JacksonException | IllegalArgumentException | NullPointerException e) {
+        } catch (AiException | JacksonException | IllegalArgumentException e) {
             log.warn("AI 분류 실패, 키워드 규칙으로 대체합니다: {}", e.getMessage());
             return ruleBasedTriage.triage(title, description);
         }

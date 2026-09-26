@@ -1,5 +1,6 @@
 package com.yh.toy_pj.global.security;
 
+import com.yh.toy_pj.auth.jwt.AccessTokenVerifier;
 import com.yh.toy_pj.auth.jwt.JwtAuthenticationFilter;
 import com.yh.toy_pj.auth.jwt.JwtTokenProvider;
 import java.util.List;
@@ -35,10 +36,12 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private static final String ADMIN = "ADMIN";
+    private static final String USER = "USER";
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtTokenProvider tokenProvider,
+                                                   AccessTokenVerifier tokenVerifier,
                                                    RestAuthenticationEntryPoint authenticationEntryPoint,
                                                    RestAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
@@ -54,6 +57,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/codes").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/error").permitAll()
+                        // 임시 비밀번호 상태에서도 가능 (나머지 API 는 비밀번호를 바꾼 뒤에 사용)
+                        .requestMatchers(HttpMethod.PATCH, "/api/auth/password").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
                         // IT 관리자 전용
                         .requestMatchers("/api/users/**", "/api/dashboard/**").hasRole(ADMIN)
                         .requestMatchers(HttpMethod.POST, "/api/assets/**").hasRole(ADMIN)
@@ -61,12 +67,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/assets/**").hasRole(ADMIN)
                         .requestMatchers(HttpMethod.POST, "/api/tickets/*/assign").hasRole(ADMIN)
                         .requestMatchers(HttpMethod.PATCH, "/api/tickets/*/classification").hasRole(ADMIN)
-                        // 그 외는 로그인만 하면 가능 (본인 데이터 제한은 서비스에서 처리)
-                        .anyRequest().authenticated())
+                        // 그 외는 로그인한 사용자·관리자 (본인 데이터 제한은 서비스에서 처리)
+                        .anyRequest().hasAnyRole(USER, ADMIN))
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(authenticationEntryPoint) // 401: 로그인 안 함 / 토큰 만료
                         .accessDeniedHandler(accessDeniedHandler))          // 403: 권한 없음
-                .addFilterBefore(new JwtAuthenticationFilter(tokenProvider), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtAuthenticationFilter(tokenProvider, tokenVerifier), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 

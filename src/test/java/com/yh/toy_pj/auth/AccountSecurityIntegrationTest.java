@@ -1,6 +1,7 @@
 package com.yh.toy_pj.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,6 +12,8 @@ import com.yh.toy_pj.domain.user.User;
 import com.yh.toy_pj.domain.user.UserRole;
 import com.yh.toy_pj.support.IntegrationTestSupport;
 import jakarta.servlet.http.Cookie;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -96,9 +99,41 @@ class AccountSecurityIntegrationTest extends IntegrationTestSupport {
         User saved = userRepository.findByEmail("hong@daon.example").orElseThrow();
         assertThat(saved.getPassword()).startsWith("{bcrypt}").doesNotContain(temporary);
 
-        tryLogin("hong@daon.example", temporary)
+        String tempBody = tryLogin("hong@daon.example", temporary)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.user.mustChangePassword").value(true));
+                .andExpect(jsonPath("$.user.mustChangePassword").value(true))
+                .andReturn().getResponse().getContentAsString();
+        String tempToken = "Bearer " + JsonPath.read(tempBody, "$.accessToken");
+
+        // 임시 비밀번호 상태에서는 서버도 다른 API 를 막는다 (프론트 화면 이동만으로는 API 직접 호출을 막을 수 없음)
+        mockMvc.perform(get("/api/tickets").header(HttpHeaders.AUTHORIZATION, tempToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH008"));
+        mockMvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, tempToken))
+                .andExpect(status().isOk());
+
+        // 비밀번호를 바꾸면 새로 받은 토큰으로 모든 기능 사용 가능
+        String changed = changePassword(tempToken, temporary, "newpass123")
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        mockMvc.perform(get("/api/tickets").header(HttpHeaders.AUTHORIZATION, "Bearer " + JsonPath.read(changed, "$.accessToken")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("비밀번호가 바뀌면 그 전에 발급된 access token 은 만료 전이라도 거절된다 (401)")
+    void tokenIssuedBeforePasswordChangeIsRevoked() throws Exception {
+        String oldToken = login("hong@daon.example");
+        mockMvc.perform(get("/api/tickets").header(HttpHeaders.AUTHORIZATION, oldToken)).andExpect(status().isOk());
+
+        // 토큰 발급 이후에 비밀번호가 바뀐 상황 (예: 관리자 초기화, 다른 기기에서 변경)
+        User user = userRepository.findByEmail("hong@daon.example").orElseThrow();
+        user.changePassword(user.getPassword(), LocalDateTime.now(ZoneId.of("Asia/Seoul")).plusMinutes(1));
+        userRepository.save(user);
+
+        mockMvc.perform(get("/api/tickets").header(HttpHeaders.AUTHORIZATION, oldToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH001"));
     }
 
     @Test

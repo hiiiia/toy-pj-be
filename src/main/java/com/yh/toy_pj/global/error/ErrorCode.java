@@ -28,6 +28,7 @@ public enum ErrorCode {
     ACCOUNT_LOCKED(HttpStatus.LOCKED, "AUTH005", "로그인에 여러 번 실패해 계정이 잠겼습니다."),
     CURRENT_PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "AUTH006", "현재 비밀번호가 올바르지 않습니다."),
     SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "AUTH007", "새 비밀번호가 현재 비밀번호와 같습니다."),
+    PASSWORD_CHANGE_REQUIRED(HttpStatus.FORBIDDEN, "AUTH008", "임시 비밀번호로 로그인했습니다. 비밀번호를 먼저 변경하세요."),
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "사용자를 찾을 수 없습니다."),

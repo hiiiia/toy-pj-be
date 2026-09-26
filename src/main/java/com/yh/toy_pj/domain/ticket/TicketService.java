@@ -22,7 +22,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Service
@@ -35,13 +37,23 @@ public class TicketService {
     private final AssetService assetService;
     private final TicketTriageService triageService;
     private final ApplicationEventPublisher eventPublisher;
+    private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
     /**
-     * 티켓 접수. 분류/우선순위가 모두 지정되면 그대로 사용하고,
-     * 하나라도 비어 있으면 AI(실패 시 키워드 규칙) 분류 결과로 채운다.
+     * 티켓 접수.
+     * <ul>
+     *   <li>일반 사용자는 분류(category)만 고를 수 있고, 우선순위는 항상 자동 분류로 정한다.
+     *       (요청자가 "긴급"을 직접 골라 처리 기한을 앞당기지 못하게. 필요하면 담당자가 재분류한다)</li>
+     *   <li>IT 관리자가 분류/우선순위를 모두 지정하면 그대로 사용한다.</li>
+     *   <li>비어 있는 값은 AI(실패 시 키워드 규칙) 분류 결과로 채운다.</li>
+     * </ul>
+     *
+     * AI 호출은 최대 수십 초 걸릴 수 있어 트랜잭션 밖에서 하고, 저장만 짧은 트랜잭션으로 처리한다.
+     * (트랜잭션 안에서 기다리면 그동안 DB 커넥션을 붙잡고 있어, 동시 접수가 몰리면 커넥션 풀이 고갈된다)
+     * SUPPORTS: 호출한 쪽에 트랜잭션이 없으면(컨트롤러에서 호출) 트랜잭션 없이 실행한다.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.SUPPORTS)
     public TicketResponse open(TicketCreateRequest request, AuthUser me) {
         User requester = userService.getUser(me.id()); // 요청자는 요청 본문이 아닌 로그인 정보로 결정
         Asset asset = request.assetId() != null ? assetService.getAsset(request.assetId()) : null;
@@ -50,7 +62,7 @@ public class TicketService {
         }
 
         TicketCategory category = request.category();
-        TicketPriority priority = request.priority();
+        TicketPriority priority = me.isAdmin() ? request.priority() : null;
         ClassificationSource source = ClassificationSource.MANUAL;
 
         if (category == null || priority == null) {
@@ -63,7 +75,7 @@ public class TicketService {
 
         Ticket ticket = Ticket.open(request.title(), request.description(), category, priority, source,
                 requester, asset, now());
-        return TicketResponse.of(ticketRepository.save(ticket), now());
+        return transactionTemplate.execute(status -> TicketResponse.of(ticketRepository.save(ticket), now()));
     }
 
     /** 일반 사용자는 검색 조건과 관계없이 본인이 요청한 티켓만 조회된다. */

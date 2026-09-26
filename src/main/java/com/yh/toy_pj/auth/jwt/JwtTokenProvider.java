@@ -10,6 +10,7 @@ import io.jsonwebtoken.io.DecodingException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
 import javax.crypto.SecretKey;
@@ -69,8 +70,12 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    /** 검증을 통과한 access token 의 내용: 사용자 정보 + 발급 시각 */
+    public record AccessToken(AuthUser user, Instant issuedAt) {
+    }
+
     /** 서명·만료를 검증하고 사용자 정보를 꺼낸다. 유효하지 않으면 빈 값. */
-    public Optional<AuthUser> parse(String token) {
+    public Optional<AccessToken> parse(String token) {
         try {
             Claims claims = Jwts.parser()
                     .verifyWith(key)
@@ -78,11 +83,12 @@ public class JwtTokenProvider {
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-            return Optional.of(new AuthUser(
+            AuthUser user = new AuthUser(
                     Long.valueOf(claims.getSubject()),
                     claims.get(CLAIM_NAME, String.class),
-                    UserRole.valueOf(claims.get(CLAIM_ROLE, String.class))));
-        } catch (JwtException | IllegalArgumentException e) {
+                    UserRole.valueOf(claims.get(CLAIM_ROLE, String.class)));
+            return Optional.of(new AccessToken(user, claims.getIssuedAt().toInstant()));
+        } catch (JwtException | IllegalArgumentException | NullPointerException e) { // iat 가 없는 토큰 포함
             log.debug("유효하지 않은 JWT: {}", e.getMessage());
             return Optional.empty();
         }

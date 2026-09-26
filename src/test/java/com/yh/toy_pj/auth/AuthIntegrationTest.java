@@ -99,6 +99,18 @@ class AuthIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("같은 refresh token 은 한 번만 쓸 수 있다 (재사용 시 401)")
+    void refreshTokenIsSingleUse() throws Exception {
+        createUser("홍길동", "hong@daon.example", UserRole.USER);
+        Cookie refresh = login("hong@daon.example", PASSWORD).andReturn().getResponse().getCookie("refresh_token");
+
+        mockMvc.perform(post("/api/auth/refresh").cookie(refresh)).andExpect(status().isOk());
+        mockMvc.perform(post("/api/auth/refresh").cookie(refresh))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH003"));
+    }
+
+    @Test
     @DisplayName("잘못된 비밀번호와 없는 이메일은 같은 메시지로 401 (계정 존재 여부를 노출하지 않음)")
     void invalidCredentials() throws Exception {
         createUser("홍길동", "hong@daon.example", UserRole.USER);

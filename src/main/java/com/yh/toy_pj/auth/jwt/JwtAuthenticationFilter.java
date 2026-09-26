@@ -25,19 +25,30 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    /** 임시 비밀번호 상태의 사용자에게만 주는 권한. 비밀번호 변경·내 정보·로그아웃만 허용된다. */
+    public static final String PASSWORD_CHANGE_REQUIRED = "PASSWORD_CHANGE_REQUIRED";
+
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtTokenProvider tokenProvider;
+    private final AccessTokenVerifier tokenVerifier;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (header != null && header.startsWith(BEARER_PREFIX)) {
-            tokenProvider.parse(header.substring(BEARER_PREFIX.length())).ifPresent(user -> {
-                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.role().name()));
-                var authentication = new UsernamePasswordAuthenticationToken(user, null, authorities);
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+            tokenProvider.parse(header.substring(BEARER_PREFIX.length())).ifPresent(token -> {
+                String role = switch (tokenVerifier.verify(token)) {
+                    case VALID -> token.user().role().name();
+                    case PASSWORD_CHANGE_REQUIRED -> PASSWORD_CHANGE_REQUIRED;
+                    case REVOKED -> null; // 비밀번호가 바뀌기 전에 발급된 토큰 → 로그인하지 않은 것으로 취급(401)
+                };
+                if (role != null) {
+                    var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                    var authentication = new UsernamePasswordAuthenticationToken(token.user(), null, authorities);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             });
         }
         chain.doFilter(request, response);
