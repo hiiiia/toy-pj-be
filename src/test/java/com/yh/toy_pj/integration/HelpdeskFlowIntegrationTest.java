@@ -51,7 +51,7 @@ class HelpdeskFlowIntegrationTest extends IntegrationTestSupport {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.requesterName").value("홍길동"))
                 .andExpect(jsonPath("$.category").value("HARDWARE"))
-                .andExpect(jsonPath("$.priority").value("URGENT"))
+                .andExpect(jsonPath("$.priority").value("HIGH")) // 한 사람의 업무 불가 → 높음
                 .andExpect(jsonPath("$.classificationSource").value("RULE"))
                 .andExpect(jsonPath("$.assetName").value("MacBook Pro 14")));
 

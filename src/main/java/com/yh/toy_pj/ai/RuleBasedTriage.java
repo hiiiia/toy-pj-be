@@ -26,8 +26,10 @@ public class RuleBasedTriage {
         CATEGORY_KEYWORDS.put(TicketCategory.HARDWARE, List.of("노트북", "모니터", "키보드", "마우스", "프린터", "전원", "부팅", "배터리", "하드웨어"));
         CATEGORY_KEYWORDS.put(TicketCategory.SOFTWARE, List.of("설치", "프로그램", "소프트웨어", "업데이트", "라이선스", "오피스", "에러", "오류"));
 
-        PRIORITY_KEYWORDS.put(TicketPriority.URGENT, List.of("긴급", "전사", "전체", "서버 다운", "업무 불가", "보안 사고"));
-        PRIORITY_KEYWORDS.put(TicketPriority.HIGH, List.of("안됨", "안 됨", "안돼", "불가", "먹통", "고장", "접속 불가"));
+        // AI 분류 기준(TicketTriageService)과 같게 맞춘다:
+        //   URGENT = 여러 사람의 업무 중단·보안 사고 / HIGH = 한 사람의 업무 불가 / LOW = 단순 문의·요청
+        PRIORITY_KEYWORDS.put(TicketPriority.URGENT, List.of("긴급", "전사", "전체 인원", "전 직원", "모든 직원", "서버 다운", "보안 사고", "해킹", "랜섬웨어"));
+        PRIORITY_KEYWORDS.put(TicketPriority.HIGH, List.of("업무 불가", "안됨", "안 됨", "안돼", "안 돼", "불가", "먹통", "고장", "접속 불가"));
         PRIORITY_KEYWORDS.put(TicketPriority.LOW, List.of("문의", "요청", "변경", "추가", "신청"));
     }
 
