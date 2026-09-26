@@ -1,6 +1,7 @@
 package com.yh.toy_pj.domain.asset;
 
 import com.yh.toy_pj.domain.asset.dto.AssetSearchCondition;
+import com.yh.toy_pj.global.common.LikePatterns;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.data.jpa.domain.Specification;
@@ -26,10 +27,10 @@ final class AssetSpecs {
             specs.add((root, query, cb) -> cb.equal(root.get("assignedUser").get("id"), cond.assignedUserId()));
         }
         if (StringUtils.hasText(cond.keyword())) {
-            String pattern = "%" + cond.keyword().trim().toLowerCase() + "%";
+            String pattern = LikePatterns.containsIgnoreCase(cond.keyword());
             specs.add((root, query, cb) -> cb.or(
-                    cb.like(cb.lower(root.get("name")), pattern),
-                    cb.like(cb.lower(root.get("serialNumber")), pattern)));
+                    cb.like(cb.lower(root.get("name")), pattern, LikePatterns.ESCAPE),
+                    cb.like(cb.lower(root.get("serialNumber")), pattern, LikePatterns.ESCAPE)));
         }
         return Specification.allOf(specs);
     }

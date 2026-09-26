@@ -2,6 +2,7 @@ package com.yh.toy_pj.domain.ticket;
 
 import com.yh.toy_pj.domain.ticket.dto.TicketSearchCondition;
 import java.time.LocalDateTime;
+import com.yh.toy_pj.global.common.LikePatterns;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.data.jpa.domain.Specification;
@@ -44,10 +45,10 @@ final class TicketSpecs {
             specs.add((root, query, cb) -> cb.isNull(root.get("assignee")));
         }
         if (StringUtils.hasText(cond.keyword())) {
-            String pattern = "%" + cond.keyword().trim().toLowerCase() + "%";
+            String pattern = LikePatterns.containsIgnoreCase(cond.keyword());
             specs.add((root, query, cb) -> cb.or(
-                    cb.like(cb.lower(root.get("title")), pattern),
-                    cb.like(cb.lower(root.get("description")), pattern)));
+                    cb.like(cb.lower(root.get("title")), pattern, LikePatterns.ESCAPE),
+                    cb.like(cb.lower(root.get("description")), pattern, LikePatterns.ESCAPE)));
         }
         return Specification.allOf(specs);
     }

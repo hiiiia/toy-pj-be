@@ -14,10 +14,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.yh.toy_pj.auth.jwt.JwtTokenProvider;
 import com.yh.toy_pj.domain.ticket.dto.TicketResponse;
 import com.yh.toy_pj.domain.user.User;
+import com.yh.toy_pj.global.common.PageResponse;
 import com.yh.toy_pj.global.error.BusinessException;
 import com.yh.toy_pj.global.error.ErrorCode;
 import com.yh.toy_pj.support.Fixtures;
 import com.yh.toy_pj.support.WebMvcSecurityTestConfig;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -138,6 +140,37 @@ class TicketControllerTest {
     void invalidSearchParam() throws Exception {
         mockMvc.perform(get("/api/tickets").param("status", "UNKNOWN").header(HttpHeaders.AUTHORIZATION, adminToken))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("허용되지 않은 필드로 정렬하면 400 (없는 필드로 500 이 나거나 requester.password 같은 민감 필드로 정렬되지 않게)")
+    void invalidSortProperty() throws Exception {
+        mockMvc.perform(get("/api/tickets").param("sort", "foo").header(HttpHeaders.AUTHORIZATION, adminToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("C001"));
+        mockMvc.perform(get("/api/tickets").param("sort", "requester.password,asc").header(HttpHeaders.AUTHORIZATION, adminToken))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(ticketService);
+    }
+
+    @Test
+    @DisplayName("허용된 필드로는 정렬할 수 있다")
+    void allowedSortProperty() throws Exception {
+        given(ticketService.search(any(), any(), any())).willReturn(new PageResponse<>(List.of(), 0, 20, 0, 0, false));
+
+        mockMvc.perform(get("/api/tickets").param("sort", "dueAt,asc").header(HttpHeaders.AUTHORIZATION, adminToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("JSON API 에 다른 Content-Type 으로 보내면 500 이 아니라 415 를 반환한다")
+    void unsupportedMediaType() throws Exception {
+        mockMvc.perform(post("/api/tickets")
+                        .header(HttpHeaders.AUTHORIZATION, employeeToken)
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("title=VPN"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.code").value("C006"));
     }
 
     @Test

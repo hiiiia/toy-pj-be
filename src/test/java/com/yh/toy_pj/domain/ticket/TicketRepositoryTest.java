@@ -81,6 +81,20 @@ class TicketRepositoryTest {
     }
 
     @Test
+    @DisplayName("키워드의 %, _ 는 와일드카드가 아니라 글자 그대로 검색한다")
+    void keywordWildcardsAreLiteral() {
+        ticketRepository.save(Ticket.open("디스크 사용률 100%", "C_DRIVE 가득 참", TicketCategory.HARDWARE, TicketPriority.LOW,
+                ClassificationSource.MANUAL, requester, null, Fixtures.NOW));
+
+        assertThat(ticketRepository.findAll(TicketSpecs.of(condition(null, null, null, "%"), Fixtures.NOW), page()).getContent())
+                .extracting(Ticket::getTitle).containsExactly("디스크 사용률 100%");
+        assertThat(ticketRepository.findAll(TicketSpecs.of(condition(null, null, null, "c_d"), Fixtures.NOW), page()).getContent())
+                .extracting(Ticket::getTitle).containsExactly("디스크 사용률 100%");
+        assertThat(ticketRepository.findAll(TicketSpecs.of(condition(null, null, null, "_"), Fixtures.NOW), page()).getTotalElements())
+                .isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("상세 조회 시 처리 이력을 함께 가져온다")
     void findDetailWithHistories() {
         Long id = ticketRepository.findAll(TicketSpecs.of(condition(TicketStatus.IN_PROGRESS, null, null, null), Fixtures.NOW), page())

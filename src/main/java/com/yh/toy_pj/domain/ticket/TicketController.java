@@ -9,10 +9,12 @@ import com.yh.toy_pj.domain.ticket.dto.TicketResponse;
 import com.yh.toy_pj.domain.ticket.dto.TicketSearchCondition;
 import com.yh.toy_pj.domain.ticket.dto.TicketStatusChangeRequest;
 import com.yh.toy_pj.global.common.PageResponse;
+import com.yh.toy_pj.global.common.SortPolicy;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -34,6 +36,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class TicketController {
 
+    /** 목록 정렬에 쓸 수 있는 필드 (그 외는 400) */
+    private static final Set<String> SORTABLE = Set.of("id", "title", "category", "priority", "status", "dueAt", "resolvedAt", "createdAt", "updatedAt");
+
     private final TicketService ticketService;
 
     @Operation(summary = "티켓 접수", description = "category/priority 를 생략하면 AI(실패 시 키워드 규칙)가 자동 분류한다.")
@@ -49,7 +54,7 @@ public class TicketController {
     public PageResponse<TicketResponse> search(@ModelAttribute TicketSearchCondition condition,
                                                @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable,
                                                @AuthenticationPrincipal AuthUser me) {
-        return ticketService.search(condition, pageable, me);
+        return ticketService.search(condition, SortPolicy.restrict(pageable, SORTABLE), me);
     }
 
     @Operation(summary = "티켓 상세 (처리 이력 포함)")

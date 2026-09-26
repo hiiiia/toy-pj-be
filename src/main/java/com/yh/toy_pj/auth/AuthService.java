@@ -51,7 +51,7 @@ public class AuthService {
 
     @Transactional
     public UserResponse signup(SignupRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
+        if (userRepository.existsByEmail(User.normalizeEmail(request.email()))) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
         User user = User.create(request.name(), request.email(), passwordEncoder.encode(request.password()),
@@ -68,7 +68,7 @@ public class AuthService {
     @Transactional(noRollbackFor = BusinessException.class)
     public LoginResult login(String email, String rawPassword) {
         LocalDateTime now = now();
-        User user = userRepository.findByEmail(email).orElse(null);
+        User user = userRepository.findByEmail(User.normalizeEmail(email)).orElse(null);
         if (user == null) {
             // 이메일 존재 여부를 응답 시간 차이로 추측하지 못하도록 같은 비용의 비교를 수행한다.
             passwordEncoder.matches(rawPassword, dummyHash());

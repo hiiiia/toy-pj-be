@@ -82,6 +82,23 @@ class AuthIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("이메일은 대소문자를 구분하지 않는다: 소문자로 저장하고, 대문자로 입력해도 로그인되며, 대소문자만 다른 중복 가입은 409")
+    void emailIsCaseInsensitive() throws Exception {
+        mockMvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON).content("""
+                        {"name": "신입", "email": "New.Hire@Daon.Example", "password": "secret123"}
+                        """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("new.hire@daon.example"));
+
+        login("NEW.HIRE@daon.example", "secret123").andExpect(status().isOk());
+        mockMvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON).content("""
+                        {"name": "중복", "email": "new.hire@DAON.example", "password": "secret123"}
+                        """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("U002"));
+    }
+
+    @Test
     @DisplayName("잘못된 비밀번호와 없는 이메일은 같은 메시지로 401 (계정 존재 여부를 노출하지 않음)")
     void invalidCredentials() throws Exception {
         createUser("홍길동", "hong@daon.example", UserRole.USER);

@@ -4,8 +4,10 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -72,6 +74,23 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(ErrorCode.METHOD_NOT_ALLOWED, ErrorCode.METHOD_NOT_ALLOWED.getMessage()));
     }
 
+    /** 잘못된 Content-Type (예: JSON API 에 text/plain, 파일 업로드 API 에 JSON) */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException e) {
+        String message = e.getContentType() == null
+                ? ErrorCode.UNSUPPORTED_MEDIA_TYPE.getMessage()
+                : "지원하지 않는 Content-Type 입니다: " + e.getContentType();
+        return ResponseEntity.status(ErrorCode.UNSUPPORTED_MEDIA_TYPE.getStatus())
+                .body(ErrorResponse.of(ErrorCode.UNSUPPORTED_MEDIA_TYPE, message));
+    }
+
+    /** 존재하지 않는 필드로 정렬한 경우의 안전망 (정렬 필드는 SortPolicy 에서 먼저 걸러진다) */
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<ErrorResponse> handlePropertyReference(PropertyReferenceException e) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of(ErrorCode.INVALID_INPUT, "정렬할 수 없는 항목입니다: " + e.getPropertyName()));
+    }
+
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException e) {
         return ResponseEntity.status(ErrorCode.RESOURCE_NOT_FOUND.getStatus())
@@ -95,6 +114,16 @@ public class GlobalExceptionHandler {
     /** 예상하지 못한 예외: 내부 정보는 로그로만 남기고 클라이언트에는 일반 메시지만 노출 */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
+        // 위에서 따로 처리하지 않은 Spring MVC 예외(필수 파라미터 누락, Accept 불일치 등)는
+        // 스스로 4xx 상태를 알고 있다. 이것까지 500 으로 바꾸면 클라이언트 잘못이 서버 장애로 기록된다.
+        if (e instanceof org.springframework.web.ErrorResponse springError
+                && springError.getStatusCode().is4xxClientError()) {
+            log.info("Client error {}: {}", springError.getStatusCode().value(), e.getMessage());
+            ErrorResponse body = ErrorResponse.of(ErrorCode.INVALID_INPUT, ErrorCode.INVALID_INPUT.getMessage());
+            return ResponseEntity.status(springError.getStatusCode())
+                    .body(new ErrorResponse(body.code(), body.message(), springError.getStatusCode().value(),
+                            body.errors(), body.requestId(), body.timestamp()));
+        }
         log.error("Unexpected error", e);
         return ResponseEntity.internalServerError()
                 .body(ErrorResponse.of(ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.getMessage()));

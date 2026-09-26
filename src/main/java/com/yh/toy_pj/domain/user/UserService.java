@@ -31,7 +31,7 @@ public class UserService {
 
     @Transactional
     public UserResponse create(UserCreateRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
+        if (userRepository.existsByEmail(User.normalizeEmail(request.email()))) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
         User user = User.create(request.name(), request.email(), passwordEncoder.encode(request.password()),

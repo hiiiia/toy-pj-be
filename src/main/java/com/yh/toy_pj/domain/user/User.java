@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Locale;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -57,7 +58,7 @@ public class User extends BaseTimeEntity {
 
     private User(String name, String email, String encodedPassword, String department, UserRole role) {
         this.name = name;
-        this.email = email;
+        this.email = normalizeEmail(email);
         this.password = encodedPassword;
         this.department = department;
         this.role = role;
@@ -68,6 +69,14 @@ public class User extends BaseTimeEntity {
      */
     public static User create(String name, String email, String encodedPassword, String department, UserRole role) {
         return new User(name, email, encodedPassword, department, role);
+    }
+
+    /**
+     * 이메일은 대소문자를 구분하지 않는다(Hong@x.com 과 hong@x.com 은 같은 주소).
+     * 저장·조회 모두 이 형태로 맞춰야 중복 가입과 "대문자로 입력하면 로그인 실패"를 막을 수 있다.
+     */
+    public static String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 
     public boolean isAdmin() {

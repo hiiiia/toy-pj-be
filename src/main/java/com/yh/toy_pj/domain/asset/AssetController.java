@@ -7,10 +7,12 @@ import com.yh.toy_pj.domain.asset.dto.AssetResponse;
 import com.yh.toy_pj.domain.asset.dto.AssetSearchCondition;
 import com.yh.toy_pj.domain.asset.dto.AssetUpdateRequest;
 import com.yh.toy_pj.global.common.PageResponse;
+import com.yh.toy_pj.global.common.SortPolicy;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -33,6 +35,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AssetController {
 
+    /** 목록 정렬에 쓸 수 있는 필드 (그 외는 400) */
+    private static final Set<String> SORTABLE = Set.of("id", "name", "type", "serialNumber", "status", "purchasedAt", "createdAt", "updatedAt");
+
     private final AssetService assetService;
 
     @Operation(summary = "자산 등록", description = "신규 자산은 '재고(AVAILABLE)' 상태로 등록된다.")
@@ -47,7 +52,7 @@ public class AssetController {
     public PageResponse<AssetResponse> search(@ModelAttribute AssetSearchCondition condition,
                                               @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable,
                                               @AuthenticationPrincipal AuthUser me) {
-        return assetService.search(condition, pageable, me);
+        return assetService.search(condition, SortPolicy.restrict(pageable, SORTABLE), me);
     }
 
     @Operation(summary = "자산 단건 조회")

@@ -48,7 +48,7 @@ docker compose up -d --build
 - 프론트엔드: `../yh-fe` 에서 `npm run dev` → http://localhost:5173
 
 - 첨부파일은 프로젝트 폴더의 `data/uploads` 에 저장됩니다. (git 에서 제외)
-- 이미 V1 스키마로 쓰던 DB 는 서버를 다시 시작하면 Flyway 가 V2~V4 를 자동으로 적용합니다. (기존 데이터 유지)
+- 이미 V1 스키마로 쓰던 DB 는 서버를 다시 시작하면 Flyway 가 V2~V5 를 자동으로 적용합니다. (기존 데이터 유지)
 
 > **Flyway 도입 전(Hibernate 가 테이블을 만들던 시절) DB 를 쓰고 있었다면** 기존 테이블을 한 번 지워야 합니다.
 > `psql -U postgres -c "DROP DATABASE yh_toy" -c "CREATE DATABASE yh_toy"`
@@ -284,13 +284,14 @@ db/migration                         ← 앱 시작 시 Flyway 가 아직 적용
 ├── V1__init_schema.sql              사용자, 자산, 티켓, 처리 이력, refresh token
 ├── V2__account_security.sql         로그인 실패 횟수·잠금, 비밀번호 변경 관련 컬럼
 ├── V3__ticket_comment_attachment.sql 댓글, 첨부파일
-└── V4__notification_sla.sql         알림, SLA 알림 발송 기록 컬럼
+├── V4__notification_sla.sql         알림, SLA 알림 발송 기록 컬럼
+└── V5__normalize_user_email.sql     기존 이메일을 소문자로 통일
 ```
 
 - 실행 이력은 `flyway_schema_history` 테이블에 남습니다. 어느 서버든 "지금 DB 가 몇 번 버전인지" 알 수 있습니다.
 - Hibernate 는 `ddl-auto=validate` 로 **엔티티와 테이블이 일치하는지 검증만** 합니다. 불일치하면 앱이 뜨지 않습니다.
 - 테스트도 **실제 PostgreSQL 컨테이너**에 같은 마이그레이션을 적용해 스키마를 만들어, SQL 과 엔티티가 어긋나면 테스트가 실패합니다.
-- **이미 적용된 파일은 수정하지 않습니다.** 변경이 필요하면 V2~V4 처럼 새 파일을 추가합니다. 기존 운영 DB 에도 데이터 손실 없이 순서대로 적용됩니다.
+- **이미 적용된 파일은 수정하지 않습니다.** 변경이 필요하면 V2~V5 처럼 새 파일을 추가합니다. 기존 운영 DB 에도 데이터 손실 없이 순서대로 적용됩니다.
 
 ---
 
@@ -394,7 +395,7 @@ INFO [nio-8080-exec-1] [9685057a545293db] c.y.t.global.logging.RequestIdFilter :
 
 ## 8. 테스트 전략
 
-`./gradlew test` — **153개 테스트** (파라미터·반복 테스트 포함), 라인 커버리지 약 **82%** (JaCoCo). 실제 PostgreSQL 컨테이너 사용
+`./gradlew test` — **163개 테스트** (파라미터·반복 테스트 포함), 라인 커버리지 약 **82%** (JaCoCo). 실제 PostgreSQL 컨테이너 사용
 
 | 레벨 | 대상 | 검증 내용 |
 |---|---|---|
@@ -412,6 +413,12 @@ INFO [nio-8080-exec-1] [9685057a545293db] c.y.t.global.logging.RequestIdFilter :
 - **"해결됨 → 종료" 전환 시 해결 시각이 지워짐** (`Ticket#changeStatus`)
 - **Jackson 3 에서 `boolean` 필드를 생략하면 400** (`CommentCreateRequest.internal` → `Boolean` 으로 변경)
 - **Docker(UTC)에서 접수 시각과 SLA 기한이 9시간 어긋남** (Auditing 에 `Clock` 적용)
+- **규칙 기반 분류가 "업무 불가"를 긴급(URGENT)으로 분류** → AI 기준과 같게 한 사람의 업무 불가는 높음(HIGH), 여러 사람의 업무 중단·보안 사고만 긴급 (`RuleBasedTriage`)
+- **잘못된 입력으로 서버 오류(500)** — 잘못된 값을 넣어 보내는 테스트로 찾은 것들
+  - `?sort=foo` 처럼 없는 필드로 정렬 → 500. 또 `?sort=requester.password` 로 **비밀번호 해시 순서로 정렬**할 수 있었음 → 정렬 가능한 필드를 화이트리스트로 제한하고 그 외는 400 (`SortPolicy`)
+  - JSON API 에 `text/plain`, 첨부 API 에 JSON 을 보내면 500 → 415 `C006`. 그 밖의 Spring MVC 4xx 예외도 500 으로 바뀌지 않게 처리 (`GlobalExceptionHandler`)
+- **검색어의 `%`, `_` 가 와일드카드로 동작** (`%` 검색 시 전체 목록) → 글자 그대로 검색하도록 이스케이프 (`LikePatterns`)
+- **이메일 대소문자 구분** — `Hong@daon.example` 로 가입하면 `hong@...` 으로 로그인 불가, 대소문자만 다른 중복 계정 생성 가능 → 저장·조회 시 소문자로 통일, 기존 데이터는 `V5` 마이그레이션으로 정리
 
 ---
 
@@ -425,7 +432,7 @@ INFO [nio-8080-exec-1] [9685057a545293db] c.y.t.global.logging.RequestIdFilter :
 | 상태값이 한글 문자열 (`"사용중"`, `"접수대기"`) | enum + 코드 API 로 라벨 제공 |
 | 존재하지 않는 ID 수정 시 500 (`RuntimeException`) | `404 A001`, `404 T001` 등 의미 있는 에러 코드 |
 | Gemini 요청 JSON 을 문자열 연결로 생성 (입력에 `"` 포함 시 깨짐) | 객체 직렬화, 헤더 인증, 타임아웃, 구조화된 JSON 응답 |
-| 테스트 1개 (`contextLoads`) | 153개 (단위/슬라이스/통합, 실제 PostgreSQL), CI 자동 실행 |
+| 테스트 1개 (`contextLoads`) | 163개 (단위/슬라이스/통합, 실제 PostgreSQL), CI 자동 실행 |
 | `User` 엔티티만 있고 사용되지 않음 | 요청자/담당자/자산 배정자로 실제 연관관계 사용 |
 | 인증 없음 (누구나 모든 API 호출, 요청자 ID 를 본문으로 받음) | Spring Security + JWT, 역할별 권한, 요청자는 토큰에서 결정 |
 | `ddl-auto=update` 로 Hibernate 가 테이블 자동 변경 | Flyway 마이그레이션 + `validate` |

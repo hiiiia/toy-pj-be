@@ -17,6 +17,7 @@ public enum ErrorCode {
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "C003", "지원하지 않는 HTTP 메서드입니다."),
     DATA_INTEGRITY_VIOLATION(HttpStatus.CONFLICT, "C004", "데이터 무결성 제약 조건에 위배됩니다."),
     CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "C005", "다른 사용자가 먼저 수정했습니다. 새로고침 후 다시 시도하세요."),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "C006", "지원하지 않는 Content-Type 입니다."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "C999", "서버 내부 오류가 발생했습니다."),
 
     // Auth
