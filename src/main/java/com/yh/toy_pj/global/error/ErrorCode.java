@@ -31,6 +31,8 @@ public enum ErrorCode {
     PASSWORD_CHANGE_REQUIRED(HttpStatus.FORBIDDEN, "AUTH008", "임시 비밀번호로 로그인했습니다. 비밀번호를 먼저 변경하세요."),
     SOCIAL_EMAIL_REQUIRED(HttpStatus.BAD_REQUEST, "AUTH009", "SNS 계정의 이메일 제공 동의가 필요합니다."),
     SOCIAL_EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "AUTH010", "이미 이메일로 가입된 계정입니다. 이메일 로그인을 이용해 주세요."),
+    SOCIAL_LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "AUTH011", "SNS 로그인에 실패했습니다. 다시 시도해 주세요."),
+
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "사용자를 찾을 수 없습니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "U002", "이미 등록된 이메일입니다."),

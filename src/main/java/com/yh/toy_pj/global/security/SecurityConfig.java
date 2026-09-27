@@ -3,6 +3,8 @@ package com.yh.toy_pj.global.security;
 import com.yh.toy_pj.auth.jwt.AccessTokenVerifier;
 import com.yh.toy_pj.auth.jwt.JwtAuthenticationFilter;
 import com.yh.toy_pj.auth.jwt.JwtTokenProvider;
+import com.yh.toy_pj.auth.oauth.OAuth2LoginFailureHandler;
+import com.yh.toy_pj.auth.oauth.OAuth2LoginSuccessHandler;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -28,6 +30,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  *   <li>세션을 쓰지 않는 STATELESS 방식: 서버는 로그인 상태를 저장하지 않고 매 요청의 JWT 만 검증한다.</li>
  *   <li>CSRF 보호 비활성화: 인증 정보를 쿠키가 아닌 Authorization 헤더로 보내므로 CSRF 공격 대상이 아니다.
  *       (refresh token 쿠키는 SameSite=Strict 로 다른 사이트 요청에 포함되지 않는다.)</li>
+ *   <li>SNS 로그인(OAuth2)의 인가 요청 state 는 로그인하는 몇 초 동안만 세션에 보관된다 (서버 1대 기준).
+ *       서버를 여러 대로 늘리면 쿠키 기반 AuthorizationRequestRepository 로 바꿔야 한다.</li>
  *   <li>URL 단위 권한 규칙은 이 클래스에, "본인 티켓만 조회" 같은 데이터 단위 규칙은 서비스 계층에 둔다.</li>
  * </ul>
  */
@@ -43,7 +47,9 @@ public class SecurityConfig {
                                                    JwtTokenProvider tokenProvider,
                                                    AccessTokenVerifier tokenVerifier,
                                                    RestAuthenticationEntryPoint authenticationEntryPoint,
-                                                   RestAccessDeniedHandler accessDeniedHandler) throws Exception {
+                                                   RestAccessDeniedHandler accessDeniedHandler,
+                                                   OAuth2LoginSuccessHandler oauth2SuccessHandler,
+                                                   OAuth2LoginFailureHandler oauth2FailureHandler) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -55,6 +61,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login",
                                 "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/codes").permitAll()
+                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll() // SNS 로그인 시작·콜백
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/error").permitAll()
                         // 임시 비밀번호 상태에서도 가능 (나머지 API 는 비밀번호를 바꾼 뒤에 사용)
@@ -69,6 +76,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/api/tickets/*/classification").hasRole(ADMIN)
                         // 그 외는 로그인한 사용자·관리자 (본인 데이터 제한은 서비스에서 처리)
                         .anyRequest().hasAnyRole(USER, ADMIN))
+                // SNS 로그인: /oauth2/authorization/{google|kakao|naver} 로 시작, /login/oauth2/code/{id} 콜백은 Spring 필터가 처리
+                // 성공하면 우리 회원으로 로그인시키고 refresh 쿠키만 심어 프론트로 보낸다 (access token 은 URL 에 싣지 않음)
+                .oauth2Login(oauth -> oauth
+                        .successHandler(oauth2SuccessHandler)
+                        .failureHandler(oauth2FailureHandler))
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(authenticationEntryPoint) // 401: 로그인 안 함 / 토큰 만료
                         .accessDeniedHandler(accessDeniedHandler))          // 403: 권한 없음

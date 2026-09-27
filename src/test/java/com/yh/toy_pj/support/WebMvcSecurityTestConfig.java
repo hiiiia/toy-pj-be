@@ -7,6 +7,8 @@ import static org.mockito.Mockito.mock;
 import com.yh.toy_pj.auth.jwt.AccessTokenVerifier;
 import com.yh.toy_pj.auth.jwt.JwtProperties;
 import com.yh.toy_pj.auth.jwt.JwtTokenProvider;
+import com.yh.toy_pj.auth.oauth.OAuth2LoginFailureHandler;
+import com.yh.toy_pj.auth.oauth.OAuth2LoginSuccessHandler;
 import com.yh.toy_pj.domain.user.AccountStatus;
 import com.yh.toy_pj.domain.user.UserRepository;
 import com.yh.toy_pj.global.config.ClockConfig;
@@ -35,5 +37,16 @@ public class WebMvcSecurityTestConfig {
         UserRepository repository = mock(UserRepository.class);
         given(repository.findAccountStatusById(any())).willReturn(Optional.of(new AccountStatus(null, false)));
         return repository;
+    }
+
+    /** SNS 로그인 처리기는 웹 계층 테스트 대상이 아니므로 가짜로 채운다 (SecurityConfig 가 주입받기 때문에 빈은 있어야 함). */
+    @Bean
+    OAuth2LoginSuccessHandler oauth2LoginSuccessHandler() {
+        return mock(OAuth2LoginSuccessHandler.class);
+    }
+
+    @Bean
+    OAuth2LoginFailureHandler oauth2LoginFailureHandler() {
+        return mock(OAuth2LoginFailureHandler.class);
     }
 }
