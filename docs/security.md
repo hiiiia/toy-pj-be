@@ -54,6 +54,33 @@ JWT 는 서버가 저장하지 않아 원래는 만료(30분) 전까지 취소�
 ### refresh token 은 한 번만 사용
 재발급 시 기존 토큰을 삭제하고, **삭제된 행 수가 1일 때만** 새 토큰을 발급합니다. 같은 토큰으로 동시에 두 번 요청해도 하나만 성공합니다.
 
+### SNS 로그인 (Google · Kakao · Naver)
+
+```mermaid
+sequenceDiagram
+    participant B as 브라우저
+    participant S as 서버 (Spring Security)
+    participant P as 제공자 (Google 등)
+    B->>S: GET /oauth2/authorization/google (로그인 버튼 = 페이지 이동)
+    S-->>B: 302 → 제공자 로그인 화면 (state 는 세션에 잠시 보관)
+    B->>P: 로그인 · 동의
+    P-->>B: 302 → /login/oauth2/code/google?code=...&state=...
+    B->>S: 콜백
+    S->>P: code → 토큰 교환, 사용자 정보 조회 (Spring 이 처리)
+    S->>S: OAuthUserInfo 변환 → 회원 찾기/가입 → 기존 issueTokens 로 발급
+    S-->>B: 302 → /oauth/callback + refresh token 쿠키만 (access token 은 URL 에 싣지 않음)
+    B->>S: POST /api/auth/refresh (일반 로그인과 같은 재발급)
+```
+
+- **로그인 방식이 달라도 발급 토큰은 같다**: SNS 로그인도 `AuthService.issueTokens()` 를 그대로 사용 → 이후의 JWT 검증·재발급·로그아웃 로직을 전혀 바꾸지 않음
+- **access token 을 URL 로 넘기지 않음**: `?token=...` 은 방문 기록·서버 로그·Referer 헤더에 남는다. HttpOnly refresh 쿠키만 심고, 프론트가 기존 `/api/auth/refresh` 로 받아간다
+- **제공자별 응답 차이는 한 곳에서 흡수**: Google(최상위) · Kakao(`kakao_account` 중첩, id 가 숫자) · Naver(`response` 안) → `OAuthUserInfo` 가 공통 모양으로 변환. 제공자가 "인증되지 않은 이메일"이라고 알려주면 이메일을 버린다
+- **같은 이메일 자동 연결 금지**: 이미 이메일로 가입한 주소면 연결하지 않고 `AUTH010` 으로 거부. 인증되지 않은 이메일을 믿고 합치면 남의 계정에 로그인할 수 있다
+- **회원 테이블은 하나**: SNS 회원도 `users` 의 한 행(비밀번호 없음, 역할은 항상 USER). 연결 정보는 `user_social_account(provider, provider_user_id)` 에 UNIQUE 로 저장 → 동시에 두 번 가입되는 것도 DB 가 막음
+- **비밀번호 없는 계정 보호**: 이메일 로그인은 일반 실패(`401 AUTH002`)와 같은 응답·같은 시간으로 처리 (null 해시 비교로 500 이 나던 것을 테스트로 발견), 비밀번호 변경은 `400 AUTH012`
+- 실패는 JSON 이 아니라 **리다이렉트**(`/login?error=AUTH009|010|011`): 이 흐름은 Controller 가 아닌 보안 필터에서 진행되어 `GlobalExceptionHandler` 가 받지 못하므로 처리기에서 직접 변환
+- 로그인 중 잠깐 필요한 `state` 는 세션에 몇 초 보관된다 (서버 1대 기준). 서버를 늘리면 쿠키 기반 저장소로 바꿔야 한다
+
 ### 권한
 
 | 기능 | 일반 사용자(USER) | IT 관리자(ADMIN) |

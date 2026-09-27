@@ -38,6 +38,9 @@
 | **JPA Auditing 도 `Clock`(Asia/Seoul) 사용** | Docker 컨테이너는 기본 UTC 라, 생성 시각(UTC)과 SLA 기한(KST)이 **9시간 어긋나는 버그**를 Docker 검증 중 발견해 수정. 서버 시간대와 무관하게 동작함을 `TZ=UTC` 로 테스트 |
 | **요청 ID (MDC)** | 동시에 들어온 요청의 로그가 섞여도 ID 로 한 요청의 흐름만 추려볼 수 있음. nginx 가 만든 ID 를 이어받아 프록시~백엔드 로그를 연결. 외부 입력 ID 는 형식 검사(로그 위조 방지) |
 | **Testcontainers (H2 → PostgreSQL)** | H2 는 PostgreSQL 과 문법·동작이 달라 "테스트는 통과, 운영은 실패"가 생길 수 있음. 운영과 같은 DB 로 테스트 |
+| **SNS 로그인은 Spring Security OAuth2 Client 에 맡기고, 회원 처리만 직접** | 인가 요청·state 검증·code 교환·사용자 정보 조회를 직접 구현하면 보안 실수가 생기기 쉬움. 우리는 "받은 정보 → 우리 회원" 변환(`OAuthUserInfo`)과 정책(`SocialLoginService`)만 작성 |
+| **SNS 로그인 성공 시 refresh 쿠키만 발급** | access token 을 리다이렉트 URL 에 싣지 않고, 프론트가 기존 재발급 API 로 받아감. 일반 로그인과 SNS 로그인이 같은 `issueTokens()`·같은 쿠키(`RefreshCookieFactory`)를 사용 |
+| **같은 이메일이어도 자동 연결하지 않음** | 제공자가 이메일 소유를 보장하지 않을 수 있어, 합치면 계정 탈취 통로가 됨. 거부하고 안내(`AUTH010`) |
 
 
 ---

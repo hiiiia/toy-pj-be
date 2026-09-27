@@ -3,6 +3,8 @@
 | Method | URL | 설명 |
 |---|---|---|
 | POST | `/api/auth/signup` | 회원가입 (USER) |
+| GET | `/oauth2/authorization/{google\|kakao\|naver}` | SNS 로그인 시작 (페이지 이동). 성공 시 refresh 쿠키 + `/oauth/callback`, 실패 시 `/login?error=AUTH009\|010\|011` |
+| GET | `/login/oauth2/code/{provider}` | 제공자 콜백 (Spring Security 가 처리, 각 개발자 콘솔에 등록) |
 | POST | `/api/auth/login` | 로그인 → access token + refresh token 쿠키 |
 | POST | `/api/auth/refresh` | 토큰 재발급 (rotation) |
 | POST | `/api/auth/logout` | 로그아웃 (refresh token 폐기) |

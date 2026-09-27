@@ -1,0 +1,11 @@
+# 편집기 공통 설정 (IntelliJ 가 자동으로 읽는다)
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+# IntelliJ 는 .properties 기본 인코딩이 ISO-8859-1 이라 한글 주석이 사라진다 → UTF-8 로 고정
+[*.properties]
+charset = utf-8

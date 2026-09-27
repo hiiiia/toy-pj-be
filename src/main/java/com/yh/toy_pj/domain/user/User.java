@@ -139,11 +139,8 @@ public class User extends BaseTimeEntity {
         unlock();
     }
 
-    /** SNS 로그인 용 password 반환 메서드 */
-
+    /** 비밀번호로 로그인할 수 있는 계정인지 (SNS 로만 가입한 회원은 false) */
     public boolean hasPassword() {
         return this.password != null;
     }
-
-
 }

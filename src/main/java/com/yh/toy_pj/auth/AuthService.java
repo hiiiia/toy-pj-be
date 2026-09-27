@@ -69,8 +69,9 @@ public class AuthService {
     public LoginResult login(String email, String rawPassword) {
         LocalDateTime now = now();
         User user = userRepository.findByEmail(User.normalizeEmail(email)).orElse(null);
-        if (user == null) {
-            // 이메일 존재 여부를 응답 시간 차이로 추측하지 못하도록 같은 비용의 비교를 수행한다.
+        if (user == null || !user.hasPassword()) {
+            // 이메일 존재 여부(또는 SNS 전용 계정 여부)를 응답 시간 차이로 추측하지 못하도록 같은 비용의 비교를 수행한다.
+            // SNS 로만 가입한 계정은 비밀번호가 없으므로 이메일 로그인은 항상 실패한다. (그대로 두면 null 해시 비교로 500)
             passwordEncoder.matches(rawPassword, dummyHash());
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
@@ -98,6 +99,9 @@ public class AuthService {
     public LoginResult changePassword(Long userId, String currentPassword, String newPassword) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        if (!user.hasPassword()) {
+            throw new BusinessException(ErrorCode.SOCIAL_ACCOUNT_WITHOUT_PASSWORD);
+        }
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new BusinessException(ErrorCode.CURRENT_PASSWORD_MISMATCH);
         }

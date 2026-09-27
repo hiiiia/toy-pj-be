@@ -14,7 +14,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| Stack | Java 17, Spring Boot 4.1, Spring Data JPA, Spring Security + JWT, PostgreSQL 16, Flyway |
+| Stack | Java 17, Spring Boot 4.1, Spring Data JPA, Spring Security + JWT, OAuth2 Client(Google·Kakao·Naver), PostgreSQL 16, Flyway |
 | AI | Google Gemini 2.5 Flash (JSON 응답) + 키워드 규칙 fallback |
 | Test | JUnit 5, Mockito, MockMvc, **Testcontainers(PostgreSQL)** — 166개, 라인 커버리지 약 82% |
 | Infra | Docker 멀티 스테이지 빌드, Docker Compose(DB·백엔드·nginx 프론트), GitHub Actions CI |
@@ -22,7 +22,7 @@
 **핵심 설계 포인트**
 1. **상태 전이는 도메인이 강제** — 엔티티에 setter 없이 `ticket.changeStatus()` 같은 메서드로만 변경. 허용되지 않은 전이는 `409`
 2. **외부 AI 장애에 강한 접수** — 타임아웃·잘못된 응답·키 미설정 시 규칙 기반 분류로 대체. AI 호출은 **트랜잭션 밖**에서 해 DB 커넥션을 붙잡지 않음
-3. **토큰 보안** — access token(30분)은 메모리, refresh token은 HttpOnly 쿠키 + DB에는 **해시만** 저장, 재발급 시 폐기(rotation). 비밀번호가 바뀌면 기존 access token도 즉시 거절
+3. **토큰 보안** — access token(30분)은 메모리, refresh token은 HttpOnly 쿠키 + DB에는 **해시만** 저장, 재발급 시 폐기(rotation). 비밀번호가 바뀌면 기존 access token도 즉시 거절. **SNS 로그인(Google·Kakao·Naver)도 같은 토큰 발급 로직**을 쓰고, 토큰을 URL 에 싣지 않음
 4. **데이터 접근 범위** — 일반 사용자는 본인 티켓·자산만. 요청자는 요청 본문이 아닌 **토큰에서** 결정
 5. **운영과 같은 환경으로 테스트** — H2 대신 실제 PostgreSQL 컨테이너, 스키마는 Flyway로만 관리(`ddl-auto=validate`)
 
@@ -77,6 +77,7 @@ docker compose up -d --build
 - 로컬 PostgreSQL 의 `yh_toy` DB 를 사용합니다. 테이블은 앱이 시작할 때 Flyway 가 만듭니다.
 - `local` 프로필에 개발용 JWT 키와 샘플 데이터가 설정되어 있어 추가 설정 없이 실행됩니다.
 - AI 기능: 실행 설정의 Environment variables 에 `GEMINI_API_KEY=...`
+- SNS 로그인: 같은 곳에 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (Kakao·Naver 도 같은 형식). 개발자 콘솔 콜백 주소는 `http://localhost:5173/login/oauth2/code/google` (프론트 개발 서버 경유)
 - 프론트엔드: `yh-fe` 에서 `npm run dev` → http://localhost:5173
 
 ### 테스트
@@ -115,7 +116,7 @@ docker compose up -d --build
 
 | 문서 | 내용 |
 |---|---|
-| [인증 · 보안](docs/security.md) | 로그인·토큰 재발급 흐름, 해시 저장, 로그인 잠금, 토큰 무효화, 권한표 |
+| [인증 · 보안](docs/security.md) | 로그인·토큰 재발급 흐름, SNS 로그인, 해시 저장, 로그인 잠금, 토큰 무효화, 권한표 |
 | [도메인 모델 · 패키지 구조](docs/architecture.md) | ERD, 티켓 상태 전이, 패키지 구성, Flyway 마이그레이션 |
 | [API 요약](docs/api.md) | 엔드포인트 목록, 에러 응답 포맷과 코드 |
 | [설계 결정과 이유](docs/design-decisions.md) | "왜 이렇게 했는가" 30여 가지 |
@@ -129,3 +130,5 @@ docker compose up -d --build
 - **AI 분류 정확도 측정**: `classificationSource=AI` 티켓 중 재분류 비율 모니터링
 - **AI 채팅 사용량 제한**: 사용자별 요청 횟수 제한(rate limit)으로 외부 API 비용 보호
 - **refresh token 재사용 탐지**: 이미 사용한 토큰이 다시 오면 탈취로 보고 해당 사용자의 모든 세션 폐기
+- **SNS 계정 연결**: 이메일로 가입한 사용자가 로그인한 상태에서 SNS 계정을 추가로 연결 (지금은 같은 이메일이면 자동 연결하지 않고 거부)
+- **서버 여러 대에서 SNS 로그인**: 로그인 중 잠깐 보관하는 state 를 세션 대신 쿠키에 두는 `AuthorizationRequestRepository` 구현
