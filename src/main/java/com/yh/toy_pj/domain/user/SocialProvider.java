@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 public enum SocialProvider implements CodeEnum {
     GOOGLE("구글"),
     KAKAO("카카오"),
-    NAVER("네이버");          // ← 값 뒤에 필드/메서드가 오면 마지막에 세미콜론 필수
+    NAVER("네이버");
 
     private final String label;
 }

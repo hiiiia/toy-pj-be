@@ -4,7 +4,7 @@
 티켓을 접수하면 **AI(Gemini)가 분류와 우선순위를 판단**하고, AI를 쓸 수 없을 때는 키워드 규칙으로 대체해 접수가 멈추지 않습니다.
 처리 기한(SLA)이 다가오거나 지나면 담당자에게 알림(앱 + Slack)을 보냅니다.
 
-> 프론트엔드: [yh-fe](https://github.com/OWNER/yh-fe) (React + TypeScript)
+> 프론트엔드: [toy-pj-fe](https://github.com/hiiiia/toy-pj-fe) (React + TypeScript)
 
 | 대시보드 | 티켓 상세 (자동 분류 · 처리 이력 · 댓글 · 첨부) |
 |---|---|
@@ -53,8 +53,8 @@ flowchart LR
 
 ```bash
 # 두 저장소를 같은 폴더에 받는다 (다른 위치라면 .env 의 FRONTEND_PATH 로 지정)
-git clone https://github.com/OWNER/toy-pj.git
-git clone https://github.com/OWNER/yh-fe.git
+git clone https://github.com/hiiiia/toy-pj-be.git toy-pj
+git clone https://github.com/hiiiia/toy-pj-fe.git yh-fe
 cd toy-pj
 
 cp .env.example .env
