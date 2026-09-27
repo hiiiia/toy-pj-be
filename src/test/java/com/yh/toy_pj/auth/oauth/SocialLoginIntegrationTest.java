@@ -55,6 +55,18 @@ class SocialLoginIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("이름이 없으면 이메일 앞부분으로, 50자보다 길면 잘라서 가입한다 (가입이 500 으로 실패하지 않게)")
+    void nameFallbackAndTruncate() {
+        User noName = socialLoginService.loginOrSignup(
+                new OAuthUserInfo(SocialProvider.GOOGLE, "g-1", null, "noname@gmail.com"));
+        User longName = socialLoginService.loginOrSignup(
+                new OAuthUserInfo(SocialProvider.NAVER, "n-1", "가".repeat(60), "long@naver.com"));
+
+        assertThat(noName.getName()).isEqualTo("noname");
+        assertThat(longName.getName()).hasSize(50);
+    }
+
+    @Test
     @DisplayName("같은 SNS 계정으로 다시 로그인하면 새로 가입하지 않고 기존 회원을 돌려준다")
     void reLoginReturnsSameUser() {
         User first = socialLoginService.loginOrSignup(kakao("gildong@kakao.com"));

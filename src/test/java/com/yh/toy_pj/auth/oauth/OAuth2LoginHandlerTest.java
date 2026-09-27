@@ -87,6 +87,18 @@ class OAuth2LoginHandlerTest {
     }
 
     @Test
+    @DisplayName("예상 못 한 오류(동시 가입으로 UNIQUE 위반 등)도 500 화면 대신 AUTH011 로 로그인 화면에 보낸다")
+    void unexpectedErrorRedirects() throws Exception {
+        given(socialLoginService.loginOrSignup(any()))
+                .willThrow(new org.springframework.dao.DataIntegrityViolationException("uk_social_provider_user"));
+
+        successHandler.onAuthenticationSuccess(request, response, googleAuthentication());
+
+        assertThat(response.getHeader(HttpHeaders.SET_COOKIE)).isNull();
+        assertThat(response.getRedirectedUrl()).isEqualTo("/login?error=AUTH011");
+    }
+
+    @Test
     @DisplayName("제공자 쪽 인증 실패(동의 취소 등)는 AUTH011 을 붙여 로그인 화면으로 보낸다")
     void providerFailure() throws Exception {
         failureHandler.onAuthenticationFailure(request, response,

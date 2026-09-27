@@ -4,6 +4,7 @@ import com.yh.toy_pj.auth.AuthService;
 import com.yh.toy_pj.auth.RefreshCookieFactory;
 import com.yh.toy_pj.domain.user.User;
 import com.yh.toy_pj.global.error.BusinessException;
+import com.yh.toy_pj.global.error.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -58,6 +59,10 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             // 여기는 Controller 가 아니라서 GlobalExceptionHandler 가 받지 못한다 → 직접 에러 코드를 붙여 로그인 화면으로
             log.info("SNS 로그인 거부: provider={}, code={}", registrationId, e.getErrorCode().getCode());
             response.sendRedirect(failureRedirectUrl + "?error=" + e.getErrorCode().getCode());
+        } catch (RuntimeException e) {
+            // 예상 못 한 오류(같은 SNS 계정으로 동시에 가입해 UNIQUE 위반 등)도 흰 에러 화면 대신 로그인 화면으로 돌려보낸다
+            log.error("SNS 로그인 처리 실패: provider={}", registrationId, e);
+            response.sendRedirect(failureRedirectUrl + "?error=" + ErrorCode.SOCIAL_LOGIN_FAILED.getCode());
         }
     }
 }
