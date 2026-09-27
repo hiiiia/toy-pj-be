@@ -160,6 +160,12 @@ public class AuthService {
         return new LoginResult(body, refreshToken);
     }
 
+    @Transactional
+    public LoginResult socialLogin(User user) {
+        log.info("SNS 로그인 성공: userId={}", user.getId());
+        return issueTokens(user);
+    }
+
     private String dummyHash() {
         String hash = dummyHash;
         if (hash == null) {

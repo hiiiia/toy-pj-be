@@ -4,12 +4,10 @@ import com.yh.toy_pj.auth.dto.LoginRequest;
 import com.yh.toy_pj.auth.dto.PasswordChangeRequest;
 import com.yh.toy_pj.auth.dto.SignupRequest;
 import com.yh.toy_pj.auth.dto.TokenResponse;
-import com.yh.toy_pj.auth.jwt.JwtProperties;
 import com.yh.toy_pj.domain.user.dto.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -36,11 +34,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AuthController {
 
-    static final String REFRESH_COOKIE = "refresh_token";
-    private static final String COOKIE_PATH = "/api/auth";
-
     private final AuthService authService;
-    private final JwtProperties jwtProperties;
+    private final RefreshCookieFactory cookieFactory;
 
     @Operation(summary = "회원가입", description = "일반 사용자(USER)로 가입한다.")
     @PostMapping("/signup")
@@ -56,16 +51,16 @@ public class AuthController {
 
     @Operation(summary = "토큰 재발급", description = "refresh token 쿠키로 새 access token 을 발급한다. 사용한 refresh token 은 폐기된다.")
     @PostMapping("/refresh")
-    public ResponseEntity<TokenResponse> refresh(@CookieValue(name = REFRESH_COOKIE, required = false) String refreshToken) {
+    public ResponseEntity<TokenResponse> refresh(@CookieValue(name = RefreshCookieFactory.NAME, required = false) String refreshToken) {
         return withRefreshCookie(authService.refresh(refreshToken));
     }
 
     @Operation(summary = "로그아웃", description = "refresh token 을 폐기하고 쿠키를 지운다.")
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@CookieValue(name = REFRESH_COOKIE, required = false) String refreshToken) {
+    public ResponseEntity<Void> logout(@CookieValue(name = RefreshCookieFactory.NAME, required = false) String refreshToken) {
         authService.logout(refreshToken);
         return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE, refreshCookie("", Duration.ZERO).toString())
+                .header(HttpHeaders.SET_COOKIE, cookieFactory.expire().toString())
                 .build();
     }
 
@@ -83,19 +78,9 @@ public class AuthController {
     }
 
     private ResponseEntity<TokenResponse> withRefreshCookie(AuthService.LoginResult result) {
-        ResponseCookie cookie = refreshCookie(result.refreshToken(), jwtProperties.refreshTokenTtl());
+        ResponseCookie cookie = cookieFactory.create(result.refreshToken());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .body(result.body());
-    }
-
-    private ResponseCookie refreshCookie(String value, Duration maxAge) {
-        return ResponseCookie.from(REFRESH_COOKIE, value)
-                .httpOnly(true)
-                .secure(jwtProperties.cookieSecure())
-                .sameSite("Strict")
-                .path(COOKIE_PATH)
-                .maxAge(maxAge)
-                .build();
     }
 }

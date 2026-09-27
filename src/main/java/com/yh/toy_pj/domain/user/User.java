@@ -1,6 +1,8 @@
 package com.yh.toy_pj.domain.user;
 
 import com.yh.toy_pj.global.common.BaseTimeEntity;
+
+import java.util.Objects;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,6 +14,8 @@ import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.Objects;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -33,7 +37,7 @@ public class User extends BaseTimeEntity {
     private String email;
 
     /** BCrypt 해시. 원문 비밀번호는 어디에도 저장하지 않는다. */
-    @Column(nullable = false, length = 100)
+    @Column(nullable = true, length = 100)
     private String password;
 
     @Column(length = 50)
@@ -70,6 +74,11 @@ public class User extends BaseTimeEntity {
     public static User create(String name, String email, String encodedPassword, String department, UserRole role) {
         return new User(name, email, encodedPassword, department, role);
     }
+
+    public static User createSocial(String name, String email) {
+        return new User(Objects.requireNonNull(name,"name"), Objects.requireNonNull(email,"email"), null, null, UserRole.USER);
+    }
+
 
     /**
      * 이메일은 대소문자를 구분하지 않는다(Hong@x.com 과 hong@x.com 은 같은 주소).
@@ -129,4 +138,12 @@ public class User extends BaseTimeEntity {
         this.mustChangePassword = true;
         unlock();
     }
+
+    /** SNS 로그인 용 password 반환 메서드 */
+
+    public boolean hasPassword() {
+        return this.password != null;
+    }
+
+
 }
